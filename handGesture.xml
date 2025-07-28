@@ -1,0 +1,243 @@
+<xml xmlns="https://developers.google.com/blockly/xml">
+  <variables>
+    <variable>hands_model</variable>
+    <variable>cap</variable>
+    <variable>frame</variable>
+    <variable>rgb_frame</variable>
+    <variable>results</variable>
+    <variable>hand_landmarks</variable>
+    <variable>gesture</variable>
+  </variables>
+  <block type="variables_set" x="43" y="27">
+    <field name="VAR">hands_model</field>
+    <value name="VALUE">
+      <block type="mp_create_hands">
+        <value name="NUM">
+          <shadow type="math_number">
+            <field name="NUM">1</field>
+          </shadow>
+        </value>
+        <value name="DET_CONF">
+          <shadow type="math_number">
+            <field name="NUM">0.7</field>
+          </shadow>
+        </value>
+        <value name="TRK_CONF">
+          <shadow type="math_number">
+            <field name="NUM">0.5</field>
+          </shadow>
+        </value>
+      </block>
+    </value>
+    <next>
+      <block type="variables_set">
+        <field name="VAR">cap</field>
+        <value name="VALUE">
+          <block type="cv_videocapture">
+            <value name="INDEX">
+              <shadow type="math_number">
+                <field name="NUM">0</field>
+              </shadow>
+            </value>
+          </block>
+        </value>
+        <next>
+          <block type="controls_whileUntil">
+            <field name="MODE">WHILE</field>
+            <value name="BOOL">
+              <block type="logic_boolean">
+                <field name="BOOL">TRUE</field>
+              </block>
+            </value>
+            <statement name="DO">
+              <block type="cv_read_and_check">
+                <value name="CAPTURE">
+                  <shadow type="variables_get">
+                    <field name="VAR">cap</field>
+                  </shadow>
+                </value>
+                <field name="VAR">frame</field>
+                <statement name="DO">
+                  <block type="variables_set">
+                    <field name="VAR">rgb_frame</field>
+                    <value name="VALUE">
+                      <block type="cv_cvtcolor">
+                        <field name="CONVERSION">COLOR_BGR2RGB</field>
+                        <value name="IMAGE">
+                          <shadow type="variables_get">
+                            <field name="VAR">frame</field>
+                          </shadow>
+                        </value>
+                      </block>
+                    </value>
+                    <next>
+                      <block type="variables_set">
+                        <field name="VAR">results</field>
+                        <value name="VALUE">
+                          <block type="mp_process">
+                            <value name="IMAGE">
+                              <shadow type="variables_get">
+                                <field name="VAR">rgb_frame</field>
+                              </shadow>
+                            </value>
+                            <value name="MODEL">
+                              <shadow type="variables_get">
+                                <field name="VAR">hands_model</field>
+                              </shadow>
+                            </value>
+                          </block>
+                        </value>
+                        <next>
+                          <block type="mp_for_each_landmark">
+                            <field name="VAR">hand_landmarks</field>
+                            <field name="LANDMARK_TYPE">multi_hand_landmarks</field>
+                            <value name="RESULTS">
+                              <shadow type="variables_get">
+                                <field name="VAR">results</field>
+                              </shadow>
+                            </value>
+                            <statement name="DO">
+                              <block type="mp_draw_landmarks">
+                                <field name="CONNECTION_TYPE">HAND_CONNECTIONS</field>
+                                <value name="IMAGE">
+                                  <shadow type="variables_get">
+                                    <field name="VAR">frame</field>
+                                  </shadow>
+                                </value>
+                                <value name="LANDMARKS">
+                                  <shadow type="variables_get">
+                                    <field name="VAR">hand_landmarks</field>
+                                  </shadow>
+                                </value>
+                                <next>
+                                  <block type="variables_set">
+                                    <field name="VAR">gesture</field>
+                                    <value name="VALUE">
+                                      <block type="mp_classify_hand_gesture">
+                                        <value name="HAND_LANDMARKS">
+                                          <shadow type="variables_get">
+                                            <field name="VAR">hand_landmarks</field>
+                                          </shadow>
+                                        </value>
+                                      </block>
+                                    </value>
+                                    <next>
+                                      <block type="cv_put_text">
+                                        <value name="IMAGE">
+                                          <shadow type="variables_get">
+                                            <field name="VAR">frame</field>
+                                          </shadow>
+                                        </value>
+                                        <value name="TEXT">
+                                          <shadow type="variables_get">
+                                            <field name="VAR">gesture</field>
+                                          </shadow>
+                                        </value>
+                                        <value name="X">
+                                          <shadow type="math_number">
+                                            <field name="NUM">50</field>
+                                          </shadow>
+                                        </value>
+                                        <value name="Y">
+                                          <shadow type="math_number">
+                                            <field name="NUM">50</field>
+                                          </shadow>
+                                        </value>
+                                        <value name="SCALE">
+                                          <shadow type="math_number">
+                                            <field name="NUM">1</field>
+                                          </shadow>
+                                        </value>
+                                        <value name="COLOR">
+                                          <shadow type="lists_create_with">
+                                            <mutation items="3"></mutation>
+                                            <value name="ADD0">
+                                              <shadow type="math_number">
+                                                <field name="NUM">0</field>
+                                              </shadow>
+                                            </value>
+                                            <value name="ADD1">
+                                              <shadow type="math_number">
+                                                <field name="NUM">255</field>
+                                              </shadow>
+                                            </value>
+                                            <value name="ADD2">
+                                              <shadow type="math_number">
+                                                <field name="NUM">0</field>
+                                              </shadow>
+                                            </value>
+                                          </shadow>
+                                        </value>
+                                        <value name="THICKNESS">
+                                          <shadow type="math_number">
+                                            <field name="NUM">2</field>
+                                          </shadow>
+                                        </value>
+                                      </block>
+                                    </next>
+                                  </block>
+                                </next>
+                              </block>
+                            </statement>
+                          </block>
+                        </next>
+                      </block>
+                    </next>
+                  </block>
+                </statement>
+                <next>
+                  <block type="cv_imshow">
+                    <value name="IMAGE">
+                      <shadow type="variables_get">
+                        <field name="VAR">frame</field>
+                      </shadow>
+                    </value>
+                    <value name="TITLE">
+                      <shadow type="text">
+                        <field name="TEXT">Hand Gesture Detection</field>
+                      </shadow>
+                    </value>
+                    <next>
+                      <block type="controls_if">
+                        <value name="IF0">
+                          <block type="logic_compare">
+                            <field name="OP">EQ</field>
+                            <value name="A">
+                              <block type="cv_get_key_press"></block>
+                            </value>
+                            <value name="B">
+                              <shadow type="text">
+                                <field name="TEXT">q</field>
+                              </shadow>
+                            </value>
+                          </block>
+                        </value>
+                        <statement name="DO0">
+                          <block type="controls_flow_statements">
+                            <field name="FLOW">BREAK</field>
+                          </block>
+                        </statement>
+                      </block>
+                    </next>
+                  </block>
+                </next>
+              </block>
+            </statement>
+            <next>
+              <block type="cv_cap_release">
+                <value name="CAPTURE">
+                  <shadow type="variables_get">
+                    <field name="VAR">cap</field>
+                  </shadow>
+                </value>
+                <next>
+                  <block type="cv_destroy_all_windows"></block>
+                </next>
+              </block>
+            </next>
+          </block>
+        </next>
+      </block>
+    </next>
+  </block>
+</xml>

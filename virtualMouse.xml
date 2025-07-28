@@ -1,0 +1,695 @@
+<xml xmlns="https://developers.google.com/blockly/xml">
+  <variables>
+    <variable>hands_model</variable>
+    <variable>cap</variable>
+    <variable>screen_dims</variable>
+    <variable>screen_width</variable>
+    <variable>screen_height</variable>
+    <variable>prev_x</variable>
+    <variable>prev_y</variable>
+    <variable>smooth_factor</variable>
+    <variable>frame</variable>
+    <variable>rgb_frame</variable>
+    <variable>results</variable>
+    <variable>frame_height</variable>
+    <variable>frame_width</variable>
+    <variable>hand_landmarks</variable>
+    <variable>index_tip_coords</variable>
+    <variable>thumb_tip_coords</variable>
+    <variable>index_x</variable>
+    <variable>index_y</variable>
+    <variable>curr_x</variable>
+    <variable>curr_y</variable>
+    <variable>screen_x</variable>
+    <variable>screen_y</variable>
+    <variable>distance</variable>
+  </variables>
+  <block type="variables_set" x="25" y="47">
+    <field name="VAR">hands_model</field>
+    <value name="VALUE">
+      <block type="mp_create_hands">
+        <value name="NUM">
+          <shadow type="math_number">
+            <field name="NUM">1</field>
+          </shadow>
+        </value>
+        <value name="DET_CONF">
+          <shadow type="math_number">
+            <field name="NUM">0.7</field>
+          </shadow>
+        </value>
+        <value name="TRK_CONF">
+          <shadow type="math_number">
+            <field name="NUM">0.5</field>
+          </shadow>
+        </value>
+      </block>
+    </value>
+    <next>
+      <block type="variables_set">
+        <field name="VAR">cap</field>
+        <value name="VALUE">
+          <block type="cv_videocapture">
+            <value name="INDEX">
+              <shadow type="math_number">
+                <field name="NUM">0</field>
+              </shadow>
+            </value>
+          </block>
+        </value>
+        <next>
+          <block type="variables_set">
+            <field name="VAR">screen_dims</field>
+            <value name="VALUE">
+              <block type="pyautogui_get_screen_size"></block>
+            </value>
+            <next>
+              <block type="variables_set">
+                <field name="VAR">screen_width</field>
+                <value name="VALUE">
+                  <block type="lists_getIndex">
+                    <mutation statement="false" at="true"></mutation>
+                    <field name="MODE">GET</field>
+                    <field name="WHERE">FROM_START</field>
+                    <value name="VALUE">
+                      <shadow type="variables_get">
+                        <field name="VAR">screen_dims</field>
+                      </shadow>
+                    </value>
+                    <value name="AT">
+                      <shadow type="math_number">
+                        <field name="NUM">1</field>
+                      </shadow>
+                    </value>
+                  </block>
+                </value>
+                <next>
+                  <block type="variables_set">
+                    <field name="VAR">screen_height</field>
+                    <value name="VALUE">
+                      <block type="lists_getIndex">
+                        <mutation statement="false" at="true"></mutation>
+                        <field name="MODE">GET</field>
+                        <field name="WHERE">FROM_START</field>
+                        <value name="VALUE">
+                          <shadow type="variables_get">
+                            <field name="VAR">screen_dims</field>
+                          </shadow>
+                        </value>
+                        <value name="AT">
+                          <shadow type="math_number">
+                            <field name="NUM">2</field>
+                          </shadow>
+                        </value>
+                      </block>
+                    </value>
+                    <next>
+                      <block type="variables_set">
+                        <field name="VAR">prev_x</field>
+                        <value name="VALUE">
+                          <shadow type="math_number">
+                            <field name="NUM">0</field>
+                          </shadow>
+                        </value>
+                        <next>
+                          <block type="variables_set">
+                            <field name="VAR">prev_y</field>
+                            <value name="VALUE">
+                              <shadow type="math_number">
+                                <field name="NUM">0</field>
+                              </shadow>
+                            </value>
+                            <next>
+                              <block type="variables_set">
+                                <field name="VAR">smooth_factor</field>
+                                <value name="VALUE">
+                                  <shadow type="math_number">
+                                    <field name="NUM">0.5</field>
+                                  </shadow>
+                                </value>
+                                <next>
+                                  <block type="controls_whileUntil">
+                                    <field name="MODE">WHILE</field>
+                                    <value name="BOOL">
+                                      <block type="logic_boolean">
+                                        <field name="BOOL">TRUE</field>
+                                      </block>
+                                    </value>
+                                    <statement name="DO">
+                                      <block type="cv_read_and_check">
+                                        <value name="CAPTURE">
+                                          <shadow type="variables_get">
+                                            <field name="VAR">cap</field>
+                                          </shadow>
+                                        </value>
+                                        <field name="VAR">frame</field>
+                                        <statement name="DO">
+                                          <block type="variables_set">
+                                            <field name="VAR">frame</field>
+                                            <value name="VALUE">
+                                              <block type="cv_flip">
+                                                <value name="IMAGE">
+                                                  <shadow type="variables_get">
+                                                    <field name="VAR">frame</field>
+                                                  </shadow>
+                                                </value>
+                                                <value name="CODE">
+                                                  <shadow type="math_number">
+                                                    <field name="NUM">1</field>
+                                                  </shadow>
+                                                </value>
+                                              </block>
+                                            </value>
+                                            <next>
+                                              <block type="variables_set">
+                                                <field name="VAR">rgb_frame</field>
+                                                <value name="VALUE">
+                                                  <block type="cv_cvtcolor">
+                                                    <field name="CONVERSION">COLOR_BGR2RGB</field>
+                                                    <value name="IMAGE">
+                                                      <shadow type="variables_get">
+                                                        <field name="VAR">frame</field>
+                                                      </shadow>
+                                                    </value>
+                                                  </block>
+                                                </value>
+                                                <next>
+                                                  <block type="variables_set">
+                                                    <field name="VAR">results</field>
+                                                    <value name="VALUE">
+                                                      <block type="mp_process">
+                                                        <value name="IMAGE">
+                                                          <shadow type="variables_get">
+                                                            <field name="VAR">rgb_frame</field>
+                                                          </shadow>
+                                                        </value>
+                                                        <value name="MODEL">
+                                                          <shadow type="variables_get">
+                                                            <field name="VAR">hands_model</field>
+                                                          </shadow>
+                                                        </value>
+                                                      </block>
+                                                    </value>
+                                                    <next>
+                                                      <block type="variables_set">
+                                                        <field name="VAR">frame_height</field>
+                                                        <value name="VALUE">
+                                                          <block type="cv_get_image_property">
+                                                            <field name="PROP">0</field>
+                                                            <value name="IMAGE">
+                                                              <shadow type="variables_get">
+                                                                <field name="VAR">frame</field>
+                                                              </shadow>
+                                                            </value>
+                                                          </block>
+                                                        </value>
+                                                        <next>
+                                                          <block type="variables_set">
+                                                            <field name="VAR">frame_width</field>
+                                                            <value name="VALUE">
+                                                              <block type="cv_get_image_property">
+                                                                <field name="PROP">1</field>
+                                                                <value name="IMAGE">
+                                                                  <shadow type="variables_get">
+                                                                    <field name="VAR">frame</field>
+                                                                  </shadow>
+                                                                </value>
+                                                              </block>
+                                                            </value>
+                                                            <next>
+                                                              <block type="mp_for_each_landmark">
+                                                                <field name="VAR">hand_landmarks</field>
+                                                                <field name="LANDMARK_TYPE">multi_hand_landmarks</field>
+                                                                <value name="RESULTS">
+                                                                  <shadow type="variables_get">
+                                                                    <field name="VAR">results</field>
+                                                                  </shadow>
+                                                                </value>
+                                                                <statement name="DO">
+                                                                  <block type="mp_draw_landmarks">
+                                                                    <field name="CONNECTION_TYPE">HAND_CONNECTIONS</field>
+                                                                    <value name="IMAGE">
+                                                                      <shadow type="variables_get">
+                                                                        <field name="VAR">frame</field>
+                                                                      </shadow>
+                                                                    </value>
+                                                                    <value name="LANDMARKS">
+                                                                      <shadow type="variables_get">
+                                                                        <field name="VAR">hand_landmarks</field>
+                                                                      </shadow>
+                                                                    </value>
+                                                                    <next>
+                                                                      <block type="variables_set">
+                                                                        <field name="VAR">index_tip_coords</field>
+                                                                        <value name="VALUE">
+                                                                          <block type="mp_get_landmark_coords">
+                                                                            <value name="ID">
+                                                                              <shadow type="math_number">
+                                                                                <field name="NUM">8</field>
+                                                                              </shadow>
+                                                                            </value>
+                                                                            <value name="LANDMARK_ITEM">
+                                                                              <shadow type="variables_get">
+                                                                                <field name="VAR">hand_landmarks</field>
+                                                                              </shadow>
+                                                                            </value>
+                                                                            <value name="IMAGE">
+                                                                              <shadow type="variables_get">
+                                                                                <field name="VAR">frame</field>
+                                                                              </shadow>
+                                                                            </value>
+                                                                          </block>
+                                                                        </value>
+                                                                        <next>
+                                                                          <block type="variables_set">
+                                                                            <field name="VAR">thumb_tip_coords</field>
+                                                                            <value name="VALUE">
+                                                                              <block type="mp_get_landmark_coords">
+                                                                                <value name="ID">
+                                                                                  <shadow type="math_number">
+                                                                                    <field name="NUM">4</field>
+                                                                                  </shadow>
+                                                                                </value>
+                                                                                <value name="LANDMARK_ITEM">
+                                                                                  <shadow type="variables_get">
+                                                                                    <field name="VAR">hand_landmarks</field>
+                                                                                  </shadow>
+                                                                                </value>
+                                                                                <value name="IMAGE">
+                                                                                  <shadow type="variables_get">
+                                                                                    <field name="VAR">frame</field>
+                                                                                  </shadow>
+                                                                                </value>
+                                                                              </block>
+                                                                            </value>
+                                                                            <next>
+                                                                              <block type="variables_set">
+                                                                                <field name="VAR">index_x</field>
+                                                                                <value name="VALUE">
+                                                                                  <block type="lists_getIndex">
+                                                                                    <mutation statement="false" at="true"></mutation>
+                                                                                    <field name="MODE">GET</field>
+                                                                                    <field name="WHERE">FROM_START</field>
+                                                                                    <value name="VALUE">
+                                                                                      <shadow type="variables_get">
+                                                                                        <field name="VAR">index_tip_coords</field>
+                                                                                      </shadow>
+                                                                                    </value>
+                                                                                    <value name="AT">
+                                                                                      <shadow type="math_number">
+                                                                                        <field name="NUM">1</field>
+                                                                                      </shadow>
+                                                                                    </value>
+                                                                                  </block>
+                                                                                </value>
+                                                                                <next>
+                                                                                  <block type="variables_set">
+                                                                                    <field name="VAR">index_y</field>
+                                                                                    <value name="VALUE">
+                                                                                      <block type="lists_getIndex">
+                                                                                        <mutation statement="false" at="true"></mutation>
+                                                                                        <field name="MODE">GET</field>
+                                                                                        <field name="WHERE">FROM_START</field>
+                                                                                        <value name="VALUE">
+                                                                                          <shadow type="variables_get">
+                                                                                            <field name="VAR">index_tip_coords</field>
+                                                                                          </shadow>
+                                                                                        </value>
+                                                                                        <value name="AT">
+                                                                                          <shadow type="math_number">
+                                                                                            <field name="NUM">2</field>
+                                                                                          </shadow>
+                                                                                        </value>
+                                                                                      </block>
+                                                                                    </value>
+                                                                                    <next>
+                                                                                      <block type="variables_set">
+                                                                                        <field name="VAR">curr_x</field>
+                                                                                        <value name="VALUE">
+                                                                                          <block type="math_arithmetic">
+                                                                                            <field name="OP">ADD</field>
+                                                                                            <value name="A">
+                                                                                              <shadow type="variables_get">
+                                                                                                <field name="VAR">prev_x</field>
+                                                                                              </shadow>
+                                                                                            </value>
+                                                                                            <value name="B">
+                                                                                              <block type="math_arithmetic">
+                                                                                                <field name="OP">MULTIPLY</field>
+                                                                                                <value name="A">
+                                                                                                  <block type="math_arithmetic">
+                                                                                                    <field name="OP">MINUS</field>
+                                                                                                    <value name="A">
+                                                                                                      <shadow type="variables_get">
+                                                                                                        <field name="VAR">index_x</field>
+                                                                                                      </shadow>
+                                                                                                    </value>
+                                                                                                    <value name="B">
+                                                                                                      <shadow type="variables_get">
+                                                                                                        <field name="VAR">prev_x</field>
+                                                                                                      </shadow>
+                                                                                                    </value>
+                                                                                                  </block>
+                                                                                                </value>
+                                                                                                <value name="B">
+                                                                                                  <shadow type="variables_get">
+                                                                                                    <field name="VAR">smooth_factor</field>
+                                                                                                  </shadow>
+                                                                                                </value>
+                                                                                              </block>
+                                                                                            </value>
+                                                                                          </block>
+                                                                                        </value>
+                                                                                        <next>
+                                                                                          <block type="variables_set">
+                                                                                            <field name="VAR">curr_y</field>
+                                                                                            <value name="VALUE">
+                                                                                              <block type="math_arithmetic">
+                                                                                                <field name="OP">ADD</field>
+                                                                                                <value name="A">
+                                                                                                  <shadow type="variables_get">
+                                                                                                    <field name="VAR">prev_y</field>
+                                                                                                  </shadow>
+                                                                                                </value>
+                                                                                                <value name="B">
+                                                                                                  <block type="math_arithmetic">
+                                                                                                    <field name="OP">MULTIPLY</field>
+                                                                                                    <value name="A">
+                                                                                                      <block type="math_arithmetic">
+                                                                                                        <field name="OP">MINUS</field>
+                                                                                                        <value name="A">
+                                                                                                          <shadow type="variables_get">
+                                                                                                            <field name="VAR">index_y</field>
+                                                                                                          </shadow>
+                                                                                                        </value>
+                                                                                                        <value name="B">
+                                                                                                          <shadow type="variables_get">
+                                                                                                            <field name="VAR">prev_y</field>
+                                                                                                          </shadow>
+                                                                                                        </value>
+                                                                                                      </block>
+                                                                                                    </value>
+                                                                                                    <value name="B">
+                                                                                                      <shadow type="variables_get">
+                                                                                                        <field name="VAR">smooth_factor</field>
+                                                                                                      </shadow>
+                                                                                                    </value>
+                                                                                                  </block>
+                                                                                                </value>
+                                                                                              </block>
+                                                                                            </value>
+                                                                                            <next>
+                                                                                              <block type="variables_set">
+                                                                                                <field name="VAR">prev_x</field>
+                                                                                                <value name="VALUE">
+                                                                                                  <shadow type="variables_get">
+                                                                                                    <field name="VAR">curr_x</field>
+                                                                                                  </shadow>
+                                                                                                </value>
+                                                                                                <next>
+                                                                                                  <block type="variables_set">
+                                                                                                    <field name="VAR">prev_y</field>
+                                                                                                    <value name="VALUE">
+                                                                                                      <shadow type="variables_get">
+                                                                                                        <field name="VAR">curr_y</field>
+                                                                                                      </shadow>
+                                                                                                    </value>
+                                                                                                    <next>
+                                                                                                      <block type="variables_set">
+                                                                                                        <field name="VAR">screen_x</field>
+                                                                                                        <value name="VALUE">
+                                                                                                          <block type="np_interp">
+                                                                                                            <value name="X">
+                                                                                                              <shadow type="variables_get">
+                                                                                                                <field name="VAR">curr_x</field>
+                                                                                                              </shadow>
+                                                                                                            </value>
+                                                                                                            <value name="XP">
+                                                                                                              <shadow type="lists_create_with">
+                                                                                                                <mutation items="2"></mutation>
+                                                                                                                <value name="ADD0">
+                                                                                                                  <shadow type="math_number">
+                                                                                                                    <field name="NUM">0</field>
+                                                                                                                  </shadow>
+                                                                                                                </value>
+                                                                                                                <value name="ADD1">
+                                                                                                                  <shadow type="variables_get">
+                                                                                                                    <field name="VAR">frame_width</field>
+                                                                                                                  </shadow>
+                                                                                                                </value>
+                                                                                                              </shadow>
+                                                                                                            </value>
+                                                                                                            <value name="FP">
+                                                                                                              <shadow type="lists_create_with">
+                                                                                                                <mutation items="2"></mutation>
+                                                                                                                <value name="ADD0">
+                                                                                                                  <shadow type="math_number">
+                                                                                                                    <field name="NUM">0</field>
+                                                                                                                  </shadow>
+                                                                                                                </value>
+                                                                                                                <value name="ADD1">
+                                                                                                                  <shadow type="variables_get">
+                                                                                                                    <field name="VAR">screen_width</field>
+                                                                                                                  </shadow>
+                                                                                                                </value>
+                                                                                                              </shadow>
+                                                                                                            </value>
+                                                                                                          </block>
+                                                                                                        </value>
+                                                                                                        <next>
+                                                                                                          <block type="variables_set">
+                                                                                                            <field name="VAR">screen_y</field>
+                                                                                                            <value name="VALUE">
+                                                                                                              <block type="np_interp">
+                                                                                                                <value name="X">
+                                                                                                                  <shadow type="variables_get">
+                                                                                                                    <field name="VAR">curr_y</field>
+                                                                                                                  </shadow>
+                                                                                                                </value>
+                                                                                                                <value name="XP">
+                                                                                                                  <shadow type="lists_create_with">
+                                                                                                                    <mutation items="2"></mutation>
+                                                                                                                    <value name="ADD0">
+                                                                                                                      <shadow type="math_number">
+                                                                                                                        <field name="NUM">0</field>
+                                                                                                                      </shadow>
+                                                                                                                    </value>
+                                                                                                                    <value name="ADD1">
+                                                                                                                      <shadow type="variables_get">
+                                                                                                                        <field name="VAR">frame_height</field>
+                                                                                                                      </shadow>
+                                                                                                                    </value>
+                                                                                                                  </shadow>
+                                                                                                                </value>
+                                                                                                                <value name="FP">
+                                                                                                                  <shadow type="lists_create_with">
+                                                                                                                    <mutation items="2"></mutation>
+                                                                                                                    <value name="ADD0">
+                                                                                                                      <shadow type="math_number">
+                                                                                                                        <field name="NUM">0</field>
+                                                                                                                      </shadow>
+                                                                                                                    </value>
+                                                                                                                    <value name="ADD1">
+                                                                                                                      <shadow type="variables_get">
+                                                                                                                        <field name="VAR">screen_height</field>
+                                                                                                                      </shadow>
+                                                                                                                    </value>
+                                                                                                                  </shadow>
+                                                                                                                </value>
+                                                                                                              </block>
+                                                                                                            </value>
+                                                                                                            <next>
+                                                                                                              <block type="pyautogui_move_to">
+                                                                                                                <value name="X">
+                                                                                                                  <shadow type="variables_get">
+                                                                                                                    <field name="VAR">screen_x</field>
+                                                                                                                  </shadow>
+                                                                                                                </value>
+                                                                                                                <value name="Y">
+                                                                                                                  <shadow type="variables_get">
+                                                                                                                    <field name="VAR">screen_y</field>
+                                                                                                                  </shadow>
+                                                                                                                </value>
+                                                                                                                <next>
+                                                                                                                  <block type="variables_set">
+                                                                                                                    <field name="VAR">distance</field>
+                                                                                                                    <value name="VALUE">
+                                                                                                                      <block type="mp_calc_distance">
+                                                                                                                        <value name="P1">
+                                                                                                                          <shadow type="variables_get">
+                                                                                                                            <field name="VAR">index_tip_coords</field>
+                                                                                                                          </shadow>
+                                                                                                                        </value>
+                                                                                                                        <value name="P2">
+                                                                                                                          <shadow type="variables_get">
+                                                                                                                            <field name="VAR">thumb_tip_coords</field>
+                                                                                                                          </shadow>
+                                                                                                                        </value>
+                                                                                                                      </block>
+                                                                                                                    </value>
+                                                                                                                    <next>
+                                                                                                                      <block type="controls_if">
+                                                                                                                        <value name="IF0">
+                                                                                                                          <block type="logic_compare">
+                                                                                                                            <field name="OP">LT</field>
+                                                                                                                            <value name="A">
+                                                                                                                              <shadow type="variables_get">
+                                                                                                                                <field name="VAR">distance</field>
+                                                                                                                              </shadow>
+                                                                                                                            </value>
+                                                                                                                            <value name="B">
+                                                                                                                              <shadow type="math_number">
+                                                                                                                                <field name="NUM">30</field>
+                                                                                                                              </shadow>
+                                                                                                                            </value>
+                                                                                                                          </block>
+                                                                                                                        </value>
+                                                                                                                        <statement name="DO0">
+                                                                                                                          <block type="pyautogui_click">
+                                                                                                                            <next>
+                                                                                                                              <block type="cv_draw_circle">
+                                                                                                                                <value name="IMAGE">
+                                                                                                                                  <shadow type="variables_get">
+                                                                                                                                    <field name="VAR">frame</field>
+                                                                                                                                  </shadow>
+                                                                                                                                </value>
+                                                                                                                                <value name="X">
+                                                                                                                                  <shadow type="variables_get">
+                                                                                                                                    <field name="VAR">index_x</field>
+                                                                                                                                  </shadow>
+                                                                                                                                </value>
+                                                                                                                                <value name="Y">
+                                                                                                                                  <shadow type="variables_get">
+                                                                                                                                    <field name="VAR">index_y</field>
+                                                                                                                                  </shadow>
+                                                                                                                                </value>
+                                                                                                                                <value name="RADIUS">
+                                                                                                                                  <shadow type="math_number">
+                                                                                                                                    <field name="NUM">10</field>
+                                                                                                                                  </shadow>
+                                                                                                                                </value>
+                                                                                                                                <value name="COLOR">
+                                                                                                                                  <shadow type="lists_create_with">
+                                                                                                                                    <mutation items="3"></mutation>
+                                                                                                                                    <value name="ADD0">
+                                                                                                                                      <shadow type="math_number">
+                                                                                                                                        <field name="NUM">0</field>
+                                                                                                                                      </shadow>
+                                                                                                                                    </value>
+                                                                                                                                    <value name="ADD1">
+                                                                                                                                      <shadow type="math_number">
+                                                                                                                                        <field name="NUM">255</field>
+                                                                                                                                      </shadow>
+                                                                                                                                    </value>
+                                                                                                                                    <value name="ADD2">
+                                                                                                                                      <shadow type="math_number">
+                                                                                                                                        <field name="NUM">0</field>
+                                                                                                                                      </shadow>
+                                                                                                                                    </value>
+                                                                                                                                  </shadow>
+                                                                                                                                </value>
+                                                                                                                                <value name="THICKNESS">
+                                                                                                                                  <shadow type="math_number">
+                                                                                                                                    <field name="NUM">-1</field>
+                                                                                                                                  </shadow>
+                                                                                                                                </value>
+                                                                                                                              </block>
+                                                                                                                            </next>
+                                                                                                                          </block>
+                                                                                                                        </statement>
+                                                                                                                      </block>
+                                                                                                                    </next>
+                                                                                                                  </block>
+                                                                                                                </next>
+                                                                                                              </block>
+                                                                                                            </next>
+                                                                                                          </block>
+                                                                                                        </next>
+                                                                                                      </block>
+                                                                                                    </next>
+                                                                                                  </block>
+                                                                                                </next>
+                                                                                              </block>
+                                                                                            </next>
+                                                                                          </block>
+                                                                                        </next>
+                                                                                      </block>
+                                                                                    </next>
+                                                                                  </block>
+                                                                                </next>
+                                                                              </block>
+                                                                            </next>
+                                                                          </block>
+                                                                        </next>
+                                                                      </block>
+                                                                    </next>
+                                                                  </block>
+                                                                </statement>
+                                                              </block>
+                                                            </next>
+                                                          </block>
+                                                        </next>
+                                                      </block>
+                                                    </next>
+                                                  </block>
+                                                </next>
+                                              </block>
+                                            </next>
+                                          </block>
+                                        </statement>
+                                        <next>
+                                          <block type="cv_imshow">
+                                            <value name="IMAGE">
+                                              <shadow type="variables_get">
+                                                <field name="VAR">frame</field>
+                                              </shadow>
+                                            </value>
+                                            <value name="TITLE">
+                                              <shadow type="text">
+                                                <field name="TEXT">Virtual Mouse</field>
+                                              </shadow>
+                                            </value>
+                                            <next>
+                                              <block type="controls_if">
+                                                <value name="IF0">
+                                                  <block type="logic_compare">
+                                                    <field name="OP">EQ</field>
+                                                    <value name="A">
+                                                      <block type="cv_get_key_press"></block>
+                                                    </value>
+                                                    <value name="B">
+                                                      <shadow type="text">
+                                                        <field name="TEXT">q</field>
+                                                      </shadow>
+                                                    </value>
+                                                  </block>
+                                                </value>
+                                                <statement name="DO0">
+                                                  <block type="controls_flow_statements">
+                                                    <field name="FLOW">BREAK</field>
+                                                  </block>
+                                                </statement>
+                                              </block>
+                                            </next>
+                                          </block>
+                                        </next>
+                                      </block>
+                                    </statement>
+                                  </block>
+                                </next>
+                              </block>
+                            </next>
+                          </block>
+                        </next>
+                      </block>
+                    </next>
+                  </block>
+                </next>
+              </block>
+            </next>
+          </block>
+        </next>
+      </block>
+    </next>
+  </block>
+</xml>

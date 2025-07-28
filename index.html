@@ -1,0 +1,994 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Blockly to Python with Turtle, OpenCV, MediaPipe & YOLOv8</title>
+  <script src="https://unpkg.com/blockly/blockly.min.js"></script>
+  <script src="https://unpkg.com/blockly/python_compressed.js"></script>
+  <style>
+    /* Basic page setup */
+    html, body {
+      height: 100%;
+      margin: 0;
+      font-family: Arial, sans-serif;
+    }
+    
+    /* Main container for the two-column layout */
+    #container {
+      display: flex;
+      flex-direction: row;
+      height: 100%;
+      width: 100%;
+    }
+
+    /* Left column for Blockly editor */
+    #blocklyContainer {
+      flex: 3; /* Takes up 3/5 of the space */
+      height: 100%;
+      position: relative;
+    }
+    
+    #blocklyDiv {
+      height: 100%;
+      width: 100%;
+    }
+
+    /* Right column for the code and button */
+    #codeContainer {
+      flex: 2; /* Takes up 2/5 of the space */
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      background: #282c34; /* A darker theme for the code area */
+      box-shadow: -2px 0 5px rgba(0,0,0,0.2);
+    }
+    
+    /* Container for all buttons */
+    #buttonContainer {
+      display: flex;
+      flex-wrap: wrap; /* Allows buttons to wrap on smaller screens */
+      padding: 5px;
+      flex-shrink: 0;
+    }
+    
+    /* Style for the buttons */
+    .actionButton {
+      padding: 10px;
+      margin: 5px;
+      border: 1px solid #555;
+      background: #4a4f5a;
+      color: white;
+      cursor: pointer;
+      font-size: 1em;
+      border-radius: 5px;
+      transition: background-color 0.2s;
+      flex-grow: 1; /* Make buttons share space */
+    }
+
+    .actionButton:hover {
+      background: #5a5f6a;
+    }
+
+    .actionButton:active {
+      background: #3a3f4a;
+    }
+    
+    /* The actual code display area */
+    #codeArea {
+      flex-grow: 1; /* Fills the remaining vertical space */
+      background: #282c34;
+      color: #abb2bf;
+      padding: 10px;
+      font-family: 'Fira Code', 'Courier New', monospace;
+      font-size: 0.9em;
+      overflow: auto; /* Add scrollbars if code is long */
+      white-space: pre-wrap; /* Wrap long lines */
+      margin: 0;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- NOTE: For examples to work, the user running the Python code needs:
+       1. The required libraries installed:
+          pip install opencv-python mediapipe numpy ultralytics pyttsx3 pyautogui screen-brightness-control
+       2. A webcam for real-time examples.
+       3. For YOLOv8: A pre-trained model file (e.g., 'yolov8n.pt') accessible by the script.
+  -->
+
+  <!-- Main layout container -->
+  <div id="container">
+    <!-- Left side: Blockly editor -->
+    <div id="blocklyContainer">
+      <div id="blocklyDiv"></div>
+    </div>
+    <!-- Right side: Code viewer and button -->
+    <div id="codeContainer">
+      <!-- Container for all buttons -->
+      <div id="buttonContainer">
+        <button id="saveButton" class="actionButton">Save Project</button>
+        <button id="loadButton" class="actionButton">Load Project</button>
+        <button id="copyButton" class="actionButton">Copy Python Code</button>
+      </div>
+      <pre id="codeArea"># Python code will appear here...</pre>
+    </div>
+  </div>
+
+  <!-- Hidden file input for loading projects -->
+  <input type="file" id="loadInput" style="display: none;" accept=".xml, .txt">
+
+  <!-- The Toolbox XML, defining the available blocks and categories -->
+  <xml id="toolbox" style="display: none">
+    <category name="YOLOv8 (Ultralytics)" colour="25">
+        <block type="yolo8_load_model"></block>
+        <block type="yolo8_detect_objects"></block>
+        <block type="yolo8_for_each_detection"></block>
+        <block type="yolo8_get_detection_info"></block>
+        <block type="yolo8_draw_detection"></block>
+    </category>
+    <category name="MediaPipe" colour="210">
+        <category name="Setup Models" colour="200">
+            <block type="mp_create_hands"></block>
+            <block type="mp_create_pose"></block>
+            <block type="mp_create_face_mesh"></block>
+            <block type="mp_create_holistic"></block>
+            <block type="mp_create_face_detection"></block>
+            <block type="mp_create_selfie_segmentation"></block>
+        </category>
+        <category name="Processing & Drawing" colour="210">
+            <block type="mp_process"></block>
+            <block type="mp_if_results"></block>
+            <block type="mp_for_each_landmark"></block>
+            <block type="mp_for_each_detection"></block>
+            <block type="mp_draw_landmarks"></block>
+            <block type="mp_draw_detection"></block>
+            <block type="mp_style_background"></block>
+        </category>
+        <category name="Analysis & Metrics" colour="220">
+            <block type="mp_get_landmark_coords"></block>
+            <block type="mp_get_specific_landmark"></block>
+            <block type="mp_calc_distance"></block>
+            <block type="mp_is_finger_extended"></block>
+            <block type="mp_classify_hand_gesture"></block>
+            <block type="mp_count_raised_fingers"></block>
+            <block type="mp_is_mouth_open"></block>
+        </category>
+    </category>
+    <category name="OpenCV" colour="120">
+      <block type="cv_imread"></block>
+      <block type="cv_imshow"></block>
+      <block type="cv_waitkey"></block>
+      <block type="cv_destroy_all_windows"></block>
+      <block type="cv_imwrite"></block>
+      <block type="cv_resize"></block>
+      <block type="cv_cvtcolor"></block>
+      <block type="cv_add_weighted"></block>
+      <block type="cv_threshold"></block>
+      <block type="cv_canny"></block>
+      <block type="cv_gaussian_blur"></block>
+      <block type="cv_draw_line"></block>
+      <block type="cv_draw_rectangle"></block>
+      <block type="cv_draw_circle"></block>
+      <block type="cv_put_text"></block>
+      <block type="cv_videocapture"></block>
+      <block type="cv_read_and_check"></block>
+      <block type="cv_cap_release"></block>
+      <block type="cv_get_key_press"></block>
+    </category>
+    <category name="Tkinter (GUI)" colour="160">
+        <block type="tk_create_window"></block>
+        <block type="tk_set_title"></block>
+        <block type="tk_set_geometry"></block>
+        <block type="tk_create_widget"></block>
+        <block type="tk_pack_widget"></block>
+        <block type="tk_grid_widget"></block>
+        <block type="tk_widget_config"></block>
+        <block type="tk_entry_get"></block>
+        <block type="tk_entry_set"></block>
+        <block type="tk_mainloop"></block>
+    </category>
+    <category name="System" colour="345">
+        <block type="sbc_set_brightness"></block>
+        <category name="PyAutoGUI" colour="330">
+            <block type="pyautogui_get_screen_size"></block>
+            <block type="pyautogui_move_to"></block>
+            <block type="pyautogui_click"></block>
+            <block type="pyautogui_press"></block>
+            <block type="pyautogui_write"></block>
+        </category>
+    </category>
+     <category name="NumPy" colour="260">
+        <block type="np_array"></block>
+        <block type="np_create_blank_image"></block>
+        <block type="np_interp"></block>
+        <block type="np_sqrt"></block>
+        <block type="np_zeros_like"></block>
+    </category>
+    <category name="Text To Speech" colour="50">
+        <block type="tts_init"></block>
+        <block type="tts_say"></block>
+        <block type="tts_run_and_wait"></block>
+        <block type="tts_set_property"></block>
+        <block type="tts_get_property"></block>
+        <block type="tts_get_voice_by_id"></block>
+    </category>
+    <category name="Time" colour="65">
+        <block type="time_sleep"></block>
+        <block type="time_get_current"></block>
+    </category>
+    <category name="Turtle" colour="180">
+      <block type="turtle_forward"></block>
+      <block type="turtle_backward"></block>
+      <block type="turtle_right"></block>
+      <block type="turtle_left"></block>
+      <sep></sep>
+      <block type="turtle_penup"></block>
+      <block type="turtle_pendown"></block>
+      <block type="turtle_pencolor"></block>
+      <block type="turtle_pensize"></block>
+      <sep></sep>
+      <block type="turtle_goto"></block>
+      <block type="turtle_speed"></block>
+      <block type="turtle_hideturtle"></block>
+      <block type="turtle_showturtle"></block>
+      <sep></sep>
+      <block type="turtle_begin_fill"></block>
+      <block type="turtle_end_fill"></block>
+      <sep></sep>
+      <block type="turtle_done"></block>
+    </category>
+    <sep></sep>
+    <category name="Python IO/Types" colour="290">
+      <block type="python_print"></block>
+      <block type="python_input"></block>
+      <block type="python_type_cast"></block>
+    </category>
+    <category name="Logic" colour="%{BKY_LOGIC_HUE}">
+        <block type="controls_if"></block>
+        <block type="logic_compare"></block>
+        <block type="logic_operation"></block>
+        <block type="logic_negate"></block>
+        <block type="logic_boolean"></block>
+    </category>
+    <category name="Loops" colour="%{BKY_LOOPS_HUE}">
+        <block type="controls_repeat_ext"></block>
+        <block type="controls_whileUntil"></block>
+        <block type="controls_for"></block>
+        <block type="controls_flow_statements"></block>
+    </category>
+    <category name="Math" colour="%{BKY_MATH_HUE}">
+        <block type="math_number"><field name="NUM">123</field></block>
+        <block type="math_arithmetic"></block>
+        <block type="math_single"></block>
+        <block type="math_trig"></block>
+        <block type="math_constant"></block>
+        <block type="math_number_property"></block>
+        <block type="math_round"></block>
+        <block type="math_on_list"></block>
+        <block type="math_modulo"></block>
+        <block type="math_constrain"></block>
+        <block type="math_random_int"></block>
+        <block type="math_random_float"></block>
+    </ag>
+    <category name="Text" colour="%{BKY_TEXTS_HUE}">
+        <block type="text"></block>
+        <block type="text_join"></block>
+    </category>
+    <category name="Lists" colour="%{BKY_LISTS_HUE}">
+        <block type="lists_create_with"></block>
+        <block type="lists_getIndex"></block>
+    </category>
+    <sep></sep>
+    <category name="Variables" colour="%{BKY_VARIABLES_HUE}" custom="VARIABLE"></category>
+    <category name="Functions" colour="%{BKY_PROCEDURES_HUE}" custom="PROCEDURE"></category>
+  </xml>
+
+  <!-- CORRECTED starting blocks to display when the page loads -->
+  <xml id="startBlocks" style="display: none">
+    <variables>
+      <variable>model</variable>
+      <variable>camera</variable>
+      <variable>frame</variable>
+      <variable>detection</variable>
+      <variable>frame_rgb</variable>
+      <variable>results</variable>
+    </variables>
+    <block type="variables_set" x="50" y="30">
+      <field name="VAR">model</field>
+      <value name="VALUE">
+        <block type="yolo8_load_model">
+          <value name="PATH">
+            <shadow type="text">
+              <field name="TEXT">yolov8n.pt</field>
+            </shadow>
+          </value>
+        </block>
+      </value>
+      <next>
+        <block type="variables_set">
+          <field name="VAR">camera</field>
+          <value name="VALUE">
+            <block type="cv_videocapture">
+              <value name="INDEX">
+                <shadow type="math_number">
+                  <field name="NUM">0</field>
+                </shadow>
+              </value>
+            </block>
+          </value>
+          <next>
+            <block type="controls_whileUntil">
+              <field name="MODE">WHILE</field>
+              <value name="BOOL">
+                <block type="logic_boolean">
+                  <field name="BOOL">TRUE</field>
+                </block>
+              </value>
+              <statement name="DO">
+                <block type="cv_read_and_check">
+                  <value name="CAPTURE">
+                    <shadow type="variables_get">
+                      <field name="VAR">camera</field>
+                    </shadow>
+                  </value>
+                  <field name="VAR">frame</field>
+                  <statement name="DO">
+                    <block type="yolo8_for_each_detection">
+                      <field name="VAR">detection</field>
+                      <value name="DETECTIONS">
+                        <block type="yolo8_detect_objects">
+                          <field name="CLASS_FILTER">person</field>
+                          <value name="IMAGE">
+                            <shadow type="variables_get">
+                              <field name="VAR">frame</field>
+                            </shadow>
+                          </value>
+                          <value name="MODEL">
+                            <shadow type="variables_get">
+                              <field name="VAR">model</field>
+                            </shadow>
+                          </value>
+                          <value name="CONF">
+                            <shadow type="math_number">
+                              <field name="NUM">0.5</field>
+                            </shadow>
+                          </value>
+                        </block>
+                      </value>
+                      <statement name="DO">
+                        <block type="yolo8_draw_detection">
+                          <value name="IMAGE">
+                            <shadow type="variables_get">
+                              <field name="VAR">frame</field>
+                            </shadow>
+                          </value>
+                          <value name="DETECTION">
+                            <shadow type="variables_get">
+                              <field name="VAR">detection</field>
+                            </shadow>
+                          </value>
+                        </block>
+                      </statement>
+                      <next>
+                        <block type="cv_imshow">
+                          <value name="IMAGE">
+                            <shadow type="variables_get">
+                              <field name="VAR">frame</field>
+                            </shadow>
+                          </value>
+                          <value name="TITLE">
+                            <shadow type="text">
+                              <field name="TEXT">YOLOv8 Detection</field>
+                            </shadow>
+                          </value>
+                          <next>
+                            <block type="controls_if">
+                              <value name="IF0">
+                                <block type="logic_compare">
+                                  <field name="OP">EQ</field>
+                                  <value name="A">
+                                    <block type="cv_get_key_press"></block>
+                                  </value>
+                                  <value name="B">
+                                    <shadow type="text">
+                                      <field name="TEXT">q</field>
+                                    </shadow>
+                                  </value>
+                                </block>
+                              </value>
+                              <statement name="DO0">
+                                <block type="controls_flow_statements">
+                                  <field name="FLOW">BREAK</field>
+                                </block>
+                              </statement>
+                            </block>
+                          </next>
+                        </block>
+                      </next>
+                    </block>
+                  </statement>
+                </block>
+              </statement>
+              <next>
+                <block type="cv_cap_release">
+                  <value name="CAPTURE">
+                    <shadow type="variables_get">
+                      <field name="VAR">camera</field>
+                    </shadow>
+                  </value>
+                  <next>
+                    <block type="cv_destroy_all_windows"></block>
+                  </next>
+                </block>
+              </next>
+            </block>
+          </next>
+        </block>
+      </next>
+    </block>
+  </xml>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      
+      const pythonGenerator = Blockly.Python;
+
+      // --- HELPER FUNCTIONS FOR IMPORTS ---
+      function addTurtleImport() { pythonGenerator.definitions_['import_turtle'] = 'import turtle'; }
+      function addCv2Import() { pythonGenerator.definitions_['import_cv2'] = 'import cv2'; }
+      function addNumpyImport() { pythonGenerator.definitions_['import_numpy'] = 'import numpy as np'; }
+      function addMediaPipeImport() { pythonGenerator.definitions_['import_mediapipe'] = 'import mediapipe as mp'; }
+      function addHandsImport() { addMediaPipeImport(); pythonGenerator.definitions_['import_mp_hands'] = 'mp_hands = mp.solutions.hands'; }
+      function addPoseImport() { addMediaPipeImport(); pythonGenerator.definitions_['import_mp_pose'] = 'mp_pose = mp.solutions.pose'; }
+      function addFaceMeshImport() { addMediaPipeImport(); pythonGenerator.definitions_['import_mp_face_mesh'] = 'mp_face_mesh = mp.solutions.face_mesh'; }
+      function addHolisticImport() { addMediaPipeImport(); pythonGenerator.definitions_['import_mp_holistic'] = 'mp_holistic = mp.solutions.holistic'; }
+      function addFaceDetectionImport() { addMediaPipeImport(); pythonGenerator.definitions_['import_mp_face_detection'] = 'mp_face_detection = mp.solutions.face_detection'; } 
+      function addSelfieSegmentationImport() { addMediaPipeImport(); pythonGenerator.definitions_['import_mp_selfie_segmentation'] = 'mp_selfie_segmentation = mp.solutions.selfie_segmentation'; }
+      function addYoloV8Import() { pythonGenerator.definitions_['import_yolo'] = 'from ultralytics import YOLO'; }
+      function addPyttsx3Import() { pythonGenerator.definitions_['import_pyttsx3'] = 'import pyttsx3'; }
+      function addTimeImport() { pythonGenerator.definitions_['import_time'] = 'import time'; }
+      function addPyAutoGUIImport() { pythonGenerator.definitions_['import_pyautogui'] = 'import pyautogui'; }
+      function addTkinterImport() { pythonGenerator.definitions_['import_tkinter'] = 'import tkinter as tk'; pythonGenerator.definitions_['import_tkinter_ttk'] = 'from tkinter import ttk'; }
+      function addMathImport() { pythonGenerator.definitions_['import_math'] = 'import math'; }
+      function addSbcImport() { pythonGenerator.definitions_['import_sbc'] = 'import screen_brightness_control as sbc'; }
+      
+      const COCO_CLASSES = [
+        ["all classes", "all"], ["person", "person"], ["bicycle", "bicycle"], ["car", "car"], ["motorcycle", "motorcycle"], ["airplane", "airplane"], ["bus", "bus"], ["train", "train"], ["truck", "truck"], ["boat", "boat"], ["traffic light", "traffic light"], ["fire hydrant", "fire hydrant"], ["stop sign", "stop sign"], ["parking meter", "parking meter"], ["bench", "bench"], ["bird", "bird"], ["cat", "cat"], ["dog", "dog"], ["horse", "horse"], ["sheep", "sheep"], ["cow", "cow"], ["elephant", "elephant"], ["bear", "bear"], ["zebra", "zebra"], ["giraffe", "giraffe"], ["backpack", "backpack"], ["umbrella", "umbrella"], ["handbag", "handbag"], ["tie", "tie"], ["suitcase", "suitcase"], ["frisbee", "frisbee"], ["skis", "skis"], ["snowboard", "snowboard"], ["sports ball", "sports ball"], ["kite", "kite"], ["baseball bat", "baseball bat"], ["baseball glove", "baseball glove"], ["skateboard", "skateboard"], ["surfboard", "surfboard"], ["tennis racket", "tennis racket"], ["bottle", "bottle"], ["wine glass", "wine glass"], ["cup", "cup"], ["fork", "fork"], ["knife", "knife"], ["spoon", "spoon"], ["bowl", "bowl"], ["banana", "banana"], ["apple", "apple"], ["sandwich", "sandwich"], ["orange", "orange"], ["broccoli", "broccoli"], ["carrot", "carrot"], ["hot dog", "hot dog"], ["pizza", "pizza"], ["donut", "donut"], ["cake", "cake"], ["chair", "chair"], ["couch", "couch"], ["potted plant", "potted plant"], ["bed", "bed"], ["dining table", "dining table"], ["toilet", "toilet"], ["tv", "tv"], ["laptop", "laptop"], ["mouse", "mouse"], ["remote", "remote"], ["keyboard", "keyboard"], ["cell phone", "cell phone"], ["microwave", "microwave"], ["oven", "oven"], ["toaster", "toaster"], ["sink", "sink"], ["refrigerator", "refrigerator"], ["book", "book"], ["clock", "clock"], ["vase", "vase"], ["scissors", "scissors"], ["teddy bear", "teddy bear"], ["hair drier", "hair drier"], ["toothbrush", "toothbrush"]
+        ];
+
+      // --- 1. DEFINE CUSTOM BLOCKS (THE SHAPES) ---
+      Blockly.defineBlocksWithJsonArray([
+        // --- YOLOv8 (Ultralytics) Blocks ---
+        { "type": "yolo8_load_model", "message0": "load YOLOv8 model from path %1", "args0": [{"type": "input_value", "name": "PATH", "check": "String"}], "output": "YoloV8Model", "colour": 25, "tooltip": "Loads a YOLOv8 model from a .pt file." },
+        { "type": "yolo8_detect_objects", "message0": "in image %1 detect objects using model %2 with confidence > %3 and class name %4", "args0": [ { "type": "input_value", "name": "IMAGE" }, { "type": "input_value", "name": "MODEL", "check": "YoloV8Model" }, { "type": "input_value", "name": "CONF", "check": "Number" }, { "type": "field_dropdown", "name": "CLASS_FILTER", "options": COCO_CLASSES } ], "inputsInline": false, "output": "Array", "colour": 25, "tooltip": "Performs object detection. To detect all classes, set class name to 'all'." },
+        { "type": "yolo8_for_each_detection", "message0": "for each %1 in YOLOv8 detections %2", "args0": [{"type": "field_variable", "name": "VAR", "variable": "detection"}, {"type": "input_value", "name": "DETECTIONS", "check": "Array"}], "message1": "%1", "args1": [{"type": "input_statement", "name": "DO"}], "previousStatement": null, "nextStatement": null, "colour": 25, "tooltip": "Iterates through the list of objects found by YOLOv8." },
+        { "type": "yolo8_get_detection_info", "message0": "from detection %1 get %2", "args0": [{"type": "input_value", "name": "DETECTION"}, {"type": "field_dropdown", "name": "INFO", "options": [["class name", "class_name"], ["confidence", "confidence"], ["bounding box (x1,y1,x2,y2)", "box"]]}], "output": null, "colour": 25, "tooltip": "Gets specific information from a YOLOv8 detection object." },
+        { "type": "yolo8_draw_detection", "message0": "on image %1 draw YOLOv8 detection %2", "args0": [{"type": "input_value", "name": "IMAGE"}, {"type": "input_value", "name": "DETECTION"}], "previousStatement": null, "nextStatement": null, "colour": 25, "tooltip": "Draws the bounding box and label for a YOLOv8 detection on an image." },
+        
+        // Python-specific Blocks
+        { "type": "python_print", "message0": "print %1", "args0": [{"type": "input_value", "name": "TEXT"}], "previousStatement": null, "nextStatement": null, "colour": 290, "tooltip": "Prints a value to the console." },
+        { "type": "python_input", "message0": "input with prompt %1", "args0": [{"type": "input_value", "name": "PROMPT", "check": "String"}], "output": "String", "colour": 290, "tooltip": "Gets text input from the user." },
+        { "type": "python_type_cast", "message0": "convert %1 to %2", "args0": [ {"type": "input_value", "name": "VALUE"}, {"type": "field_dropdown", "name": "TYPE", "options": [["integer", "int"], ["float", "float"], ["string", "str"]]} ], "output": null, "colour": 290, "tooltip": "Casts a value to a different data type." },
+        
+        // --- Turtle Blocks ---
+        { "type": "turtle_forward", "message0": "turtle forward %1 pixels", "args0": [{ "type": "input_value", "name": "VALUE", "check": "Number" }], "previousStatement": null, "nextStatement": null, "colour": 180 },
+        { "type": "turtle_backward", "message0": "turtle backward %1 pixels", "args0": [{ "type": "input_value", "name": "VALUE", "check": "Number" }], "previousStatement": null, "nextStatement": null, "colour": 180 },
+        { "type": "turtle_right", "message0": "turtle turn right %1 degrees", "args0": [{ "type": "input_value", "name": "VALUE", "check": "Number" }], "previousStatement": null, "nextStatement": null, "colour": 180 },
+        { "type": "turtle_left", "message0": "turtle turn left %1 degrees", "args0": [{ "type": "input_value", "name": "VALUE", "check": "Number" }], "previousStatement": null, "nextStatement": null, "colour": 180 },
+        { "type": "turtle_penup", "message0": "turtle pen up", "previousStatement": null, "nextStatement": null, "colour": 180, "tooltip": "Lifts the turtle's pen." },
+        { "type": "turtle_pendown", "message0": "turtle pen down", "previousStatement": null, "nextStatement": null, "colour": 180, "tooltip": "Lowers the turtle's pen." },
+        { "type": "turtle_pencolor", "message0": "turtle set pen color to %1", "args0": [{ "type": "input_value", "name": "COLOR", "check": "String" }], "previousStatement": null, "nextStatement": null, "colour": 180, "tooltip": "Sets the pen color (e.g., 'red', '#ff0000')." },
+        { "type": "turtle_pensize", "message0": "turtle set pen size to %1", "args0": [{ "type": "input_value", "name": "SIZE", "check": "Number" }], "previousStatement": null, "nextStatement": null, "colour": 180, "tooltip": "Sets the thickness of the turtle's pen." },
+        { "type": "turtle_goto", "message0": "turtle go to x: %1 y: %2", "args0": [{ "type": "input_value", "name": "X", "check": "Number" }, { "type": "input_value", "name": "Y", "check": "Number" }], "previousStatement": null, "nextStatement": null, "colour": 180, "tooltip": "Moves the turtle to an absolute position." },
+        { "type": "turtle_speed", "message0": "turtle set speed to %1", "args0": [{ "type": "input_value", "name": "SPEED", "check": "Number" }], "previousStatement": null, "nextStatement": null, "colour": 180, "tooltip": "Sets the turtle's speed (0=fastest, 1-10=slow to fast)." },
+        { "type": "turtle_hideturtle", "message0": "turtle hide", "previousStatement": null, "nextStatement": null, "colour": 180, "tooltip": "Makes the turtle icon invisible." },
+        { "type": "turtle_showturtle", "message0": "turtle show", "previousStatement": null, "nextStatement": null, "colour": 180, "tooltip": "Makes the turtle icon visible." },
+        { "type": "turtle_begin_fill", "message0": "turtle begin fill", "previousStatement": null, "nextStatement": null, "colour": 180, "tooltip": "Call before drawing a shape to be filled." },
+        { "type": "turtle_end_fill", "message0": "turtle end fill", "previousStatement": null, "nextStatement": null, "colour": 180, "tooltip": "Fills the shape drawn after 'begin fill'." },
+        { "type": "turtle_done", "message0": "turtle done", "previousStatement": null, "nextStatement": null, "colour": 180, "tooltip": "Keeps the turtle window open until closed." },
+
+        // === OpenCV Blocks ===
+        { "type": "cv_imread", "message0": "cv2 load image from path %1", "args0": [{ "type": "input_value", "name": "PATH", "check": "String" }], "output": null, "colour": 120 },
+        { "type": "cv_imshow", "message0": "cv2 show image %1 in window titled %2", "args0": [{ "type": "input_value", "name": "IMAGE" }, { "type": "input_value", "name": "TITLE", "check": "String" }], "previousStatement": null, "nextStatement": null, "colour": 120 },
+        { "type": "cv_waitkey", "message0": "cv2 waitKey (delay %1 ms)", "args0": [{ "type": "input_value", "name": "DELAY", "check": "Number" }], "previousStatement": null, "nextStatement": null, "colour": 120 },
+        { "type": "cv_destroy_all_windows", "message0": "cv2 destroyAllWindows", "previousStatement": null, "nextStatement": null, "colour": 120 },
+        { "type": "cv_resize", "message0": "cv2 resize image %1 to width %2 height %3", "args0": [{ "type": "input_value", "name": "IMAGE" }, { "type": "input_value", "name": "WIDTH", "check": "Number" }, { "type": "input_value", "name": "HEIGHT", "check": "Number" }], "output": null, "colour": 120 },
+        { "type": "cv_flip", "message0": "cv2 flip image %1 code %2", "args0": [{"type": "input_value", "name": "IMAGE"}, {"type": "input_value", "name": "CODE", "check": "Number"}], "output": null, "colour": 120, "tooltip": "Flips an image. Code 1 for horizontal, 0 for vertical, -1 for both." },
+        { "type": "cv_add_weighted", "message0": "cv2 blend image %1 weight %2 with image %3 weight %4 gamma %5", "args0": [ {"type": "input_value", "name": "SRC1"}, {"type": "input_value", "name": "ALPHA", "check": "Number"}, {"type": "input_value", "name": "SRC2"}, {"type": "input_value", "name": "BETA", "check": "Number"}, {"type": "input_value", "name": "GAMMA", "check": "Number"} ], "output": null, "inputsInline": false, "colour": 120, "tooltip": "Blends two images using weights: dst = src1*alpha + src2*beta + gamma." },
+        { "type": "cv_get_image_property", "message0": "get %1 of image %2", "args0": [{"type": "field_dropdown", "name": "PROP", "options": [["height", "0"], ["width", "1"]]}, {"type": "input_value", "name": "IMAGE"}], "output": "Number", "colour": 120, "tooltip": "Gets the width or height of an image in pixels." },
+        { "type": "cv_cvtcolor", "message0": "cv2 cvtColor image %1 conversion %2", "args0": [{ "type": "input_value", "name": "IMAGE" }, { "type": "field_dropdown", "name": "CONVERSION", "options": [["BGR to RGB", "COLOR_BGR2RGB"], ["BGR to Grayscale", "COLOR_BGR2GRAY"], ["BGR to HSV", "COLOR_BGR2HSV"], ["Grayscale to BGR", "COLOR_GRAY2BGR"], ["HSV to BGR", "COLOR_HSV2BGR"], ["RGB to BGR", "COLOR_RGB2BGR"]] }], "output": null, "colour": 120 },
+        { "type": "cv_threshold", "message0": "cv2 threshold image %1 thresh val %2 max val %3", "args0": [{ "type": "input_value", "name": "IMAGE" }, { "type": "input_value", "name": "THRESH", "check": "Number" }, { "type": "input_value", "name": "MAXVAL", "check": "Number" }], "output": null, "colour": 120 },
+        { "type": "cv_canny", "message0": "cv2 Canny edges in image %1 thresh1 %2 thresh2 %3", "args0": [{ "type": "input_value", "name": "IMAGE" }, { "type": "input_value", "name": "T1", "check": "Number" }, { "type": "input_value", "name": "T2", "check": "Number" }], "output": null, "colour": 120 },
+        { "type": "cv_gaussian_blur", "message0": "cv2 GaussianBlur image %1 kernel (%2, %3)", "args0": [{ "type": "input_value", "name": "IMAGE" }, { "type": "input_value", "name": "K_WIDTH", "check": "Number" }, { "type": "input_value", "name": "K_HEIGHT", "check": "Number" }], "output": null, "colour": 120 },
+        { "type": "cv_imwrite", "message0": "cv2 imwrite image %1 to path %2", "args0": [{ "type": "input_value", "name": "IMAGE" }, { "type": "input_value", "name": "PATH", "check": "String" }], "previousStatement": null, "nextStatement": null, "colour": 120 },
+        { "type": "cv_draw_line", "message0": "cv2 line on image %1 from (%2, %3) to (%4, %5) color %6 thick %7", "args0": [{ "type": "input_value", "name": "IMAGE" }, { "type": "input_value", "name": "X1" }, { "type": "input_value", "name": "Y1" }, { "type": "input_value", "name": "X2" }, { "type": "input_value", "name": "Y2" }, { "type": "input_value", "name": "COLOR" }, { "type": "input_value", "name": "THICKNESS" }], "inputsInline": false, "previousStatement": null, "nextStatement": null, "colour": 120 },
+        { "type": "cv_draw_rectangle", "message0": "cv2 rectangle on image %1 from (%2, %3) to (%4, %5) color %6 thick %7", "args0": [{ "type": "input_value", "name": "IMAGE" }, { "type": "input_value", "name": "X1" }, { "type": "input_value", "name": "Y1" }, { "type": "input_value", "name": "X2" }, { "type": "input_value", "name": "Y2" }, { "type": "input_value", "name": "COLOR" }, { "type": "input_value", "name": "THICKNESS" }], "inputsInline": false, "previousStatement": null, "nextStatement": null, "colour": 120 },
+        { "type": "cv_draw_circle", "message0": "cv2 circle on image %1 at (%2, %3) radius %4 color %5 thick %6", "args0": [{ "type": "input_value", "name": "IMAGE" }, { "type": "input_value", "name": "X" }, { "type": "input_value", "name": "Y" }, { "type": "input_value", "name": "RADIUS" }, { "type": "input_value", "name": "COLOR" }, { "type": "input_value", "name": "THICKNESS" }], "inputsInline": false, "previousStatement": null, "nextStatement": null, "colour": 120 },
+        { "type": "cv_put_text", "message0": "cv2 putText on image %1 text %2 at (%3, %4) scale %5 color %6 thick %7", "args0": [{ "type": "input_value", "name": "IMAGE" }, { "type": "input_value", "name": "TEXT" }, { "type": "input_value", "name": "X" }, { "type": "input_value", "name": "Y" }, { "type": "input_value", "name": "SCALE" }, { "type": "input_value", "name": "COLOR" }, { "type": "input_value", "name": "THICKNESS" }], "inputsInline": false, "previousStatement": null, "nextStatement": null, "colour": 120 },
+        { "type": "cv_videocapture", "message0": "cv2 VideoCapture at index %1", "args0": [{ "type": "input_value", "name": "INDEX", "check": "Number" }], "output": null, "colour": 120 },
+        { "type": "cv_read_and_check", "message0": "read frame from camera %1 into %2", "args0": [{"type": "input_value", "name": "CAPTURE"}, {"type": "field_variable", "name": "VAR", "variable": "frame"}], "message1": "and if successful: %1", "args1": [{"type": "input_statement", "name": "DO"}], "previousStatement": null, "nextStatement": null, "colour": 120, "tooltip": "Reads a frame from the camera. The code inside only runs if the read was successful." },
+        { "type": "cv_cap_release", "message0": "release camera %1", "args0": [{ "type": "input_value", "name": "CAPTURE" }], "previousStatement": null, "nextStatement": null, "colour": 120 },
+        { "type": "cv_get_key_press", "message0": "key pressed (waits 1ms)", "output": "String", "colour": 120 },
+                // Add this JSON definition inside the Blockly.defineBlocksWithJsonArray array
+        {
+          "type": "cv_overlay_image",
+          "message0": "overlay image %1 onto %2 at (x: %3, y: %4)",
+          "args0": [
+            { "type": "input_value", "name": "OVERLAY" },
+            { "type": "input_value", "name": "TARGET" },
+            { "type": "input_value", "name": "X", "check": "Number" },
+            { "type": "input_value", "name": "Y", "check": "Number" }
+          ],
+          "inputsInline": true,
+          "previousStatement": null,
+          "nextStatement": null,
+          "colour": 120,
+          "tooltip": "Overlays a smaller image onto a larger one at a specific (x,y) coordinate using NumPy slicing."
+        },
+
+        // === MediaPipe Blocks ===
+        { "type": "mp_create_hands", "message0": "mp setup Hands max hands %1 min detection conf %2 min tracking conf %3", "args0": [{ "type": "input_value", "name": "NUM", "check": "Number" }, { "type": "input_value", "name": "DET_CONF", "check": "Number" }, { "type": "input_value", "name": "TRK_CONF", "check": "Number" } ], "output": null, "colour": 200, "tooltip": "Creates a MediaPipe Hands model for detection." },
+        { "type": "mp_create_pose", "message0": "mp setup Pose min detection conf %1 min tracking conf %2", "args0": [{ "type": "input_value", "name": "DET_CONF", "check": "Number" }, { "type": "input_value", "name": "TRK_CONF", "check": "Number" } ], "output": null, "colour": 200, "tooltip": "Creates a MediaPipe Pose model for detection." },
+        { "type": "mp_create_face_mesh", "message0": "mp setup FaceMesh max faces %1 min detection conf %2", "args0": [{ "type": "input_value", "name": "NUM", "check": "Number" }, { "type": "input_value", "name": "DET_CONF", "check": "Number" }], "output": null, "colour": 200, "tooltip": "Creates a MediaPipe Face Mesh model for detection." },
+        { "type": "mp_create_holistic", "message0": "mp setup Holistic min detection conf %1 min tracking conf %2", "args0": [{ "type": "input_value", "name": "DET_CONF", "check": "Number" }, { "type": "input_value", "name": "TRK_CONF", "check": "Number" }], "output": null, "colour": 200, "tooltip": "Creates a MediaPipe Holistic model for detection." },
+        { "type": "mp_create_face_detection", "message0": "mp setup FaceDetection min confidence %1", "args0": [{ "type": "input_value", "name": "CONF", "check": "Number" }], "output": null, "colour": 200, "tooltip": "Creates a Face Detection model." },
+        { "type": "mp_create_selfie_segmentation", "message0": "mp setup SelfieSegmentation model %1", "args0": [{ "type": "field_dropdown", "name": "MODEL_TYPE", "options": [["General", "0"], ["Landscape", "1"]] }], "output": null, "colour": 200, "tooltip": "Creates a Selfie Segmentation model." },
+        { "type": "mp_process", "message0": "mp process image %1 with model %2", "args0": [{ "type": "input_value", "name": "IMAGE" }, { "type": "input_value", "name": "MODEL" }], "output": null, "colour": 210, "tooltip": "Processes an RGB image with a MediaPipe model. Returns results." },
+        { "type": "mp_if_results", "message0": "if results %1 contains %2", "args0": [{ "type": "input_value", "name": "RESULTS" }, { "type": "field_dropdown", "name": "LANDMARK_TYPE", "options": [["hand landmarks", "multi_hand_landmarks"], ["pose landmarks", "pose_landmarks"], ["face landmarks", "multi_face_landmarks"], ["left hand landmarks", "left_hand_landmarks"], ["right hand landmarks", "right_hand_landmarks"], ["detections", "detections"], ["segmentation mask", "segmentation_mask"] ] }], "message1": "%1", "args1": [{"type": "input_statement", "name": "DO"}], "previousStatement": null, "nextStatement": null, "colour": 210, "tooltip": "Checks if the MediaPipe results object contains the specified data." },
+        { "type": "mp_for_each_landmark", "message0": "for each %1 in %2 from results %3", "args0": [{"type": "field_variable", "name": "VAR", "variable": "landmark_item"}, { "type": "field_dropdown", "name": "LANDMARK_TYPE", "options": [["hand landmark list", "multi_hand_landmarks"], ["face landmark list", "multi_face_landmarks"]] }, { "type": "input_value", "name": "RESULTS" }], "message1": "%1", "args1": [{"type": "input_statement", "name": "DO"}], "previousStatement": null, "nextStatement": null, "colour": 210, "tooltip": "Iterates through each set of landmarks found in the results (for multi-item lists)." },
+        { "type": "mp_for_each_detection", "message0": "for each %1 in detections from results %2", "args0": [{"type": "field_variable", "name": "VAR", "variable": "detection_item"}, {"type": "input_value", "name": "RESULTS"}], "message1": "%1", "args1": [{"type": "input_statement", "name": "DO"}], "previousStatement": null, "nextStatement": null, "colour": 210, "tooltip": "Iterates through each detection found by Face detection." },
+        { "type": "mp_draw_landmarks", "message0": "mp draw on image %1 landmarks %2 with connections %3", "args0": [{ "type": "input_value", "name": "IMAGE" }, { "type": "input_value", "name": "LANDMARKS" }, { "type": "field_dropdown", "name": "CONNECTION_TYPE", "options": [["Hand", "HAND_CONNECTIONS"], ["Pose", "POSE_CONNECTIONS"], ["Face Tessellation", "FACEMESH_TESSELATION"], ["Face Contours", "FACEMESH_CONTOURS"], ["Face Irises", "FACEMESH_IRISES"]] }], "previousStatement": null, "nextStatement": null, "colour": 210, "tooltip": "Draws the landmarks and connections on an image." },
+        { "type": "mp_draw_detection", "message0": "mp draw detection %1 on image %2", "args0": [{ "type": "input_value", "name": "DETECTION" }, { "type": "input_value", "name": "IMAGE" }], "previousStatement": null, "nextStatement": null, "colour": 210, "tooltip": "Draws the bounding box for a detection." },
+        { "type": "mp_style_background", "message0": "create new image from %1 with background styled as %2 %3 using segmentation results %4", "args0": [{ "type": "input_value", "name": "IMAGE" }, { "type": "field_dropdown", "name": "STYLE", "options": [["blurred", "BLUR"], ["solid color", "COLOR"]] }, { "type": "input_value", "name": "COLOR" }, { "type": "input_value", "name": "RESULTS" }], "output": null, "colour": 210, "tooltip": "Uses selfie segmentation to style the background of an image." },
+        { "type": "mp_get_landmark_coords", "message0": "get pixel coords of landmark id %1 from %2 on image %3", "args0": [{ "type": "input_value", "name": "ID", "check": "Number" }, { "type": "input_value", "name": "LANDMARK_ITEM" }, { "type": "input_value", "name": "IMAGE" }], "output": "Array", "colour": 220, "tooltip": "Gets the (x, y) pixel coordinates of a specific landmark point (e.g., wrist is 0)." },
+        { "type": "mp_get_specific_landmark", "message0": "from %1 get %2", "args0": [ { "type": "input_value", "name": "LANDMARK_ITEM" }, { "type": "field_dropdown", "name": "LANDMARK_NAME", "options": [ ["Wrist", "0"], ["Thumb Tip", "4"], ["Index Finger Tip", "8"], ["Middle Finger Tip", "12"], ["Ring Finger Tip", "16"], ["Pinky Tip", "20"], ["Nose", "1"], ["Left Eye", "33"], ["Right Eye", "263"], ["Mouth Left", "61"], ["Mouth Right", "291"] ]}], "output": null, "colour": 220, "tooltip": "Gets a specific, named landmark object from a landmark list." },
+        { "type": "mp_calc_distance", "message0": "calculate distance between point1 %1 and point2 %2", "args0": [{ "type": "input_value", "name": "P1", "check": "Array" }, { "type": "input_value", "name": "P2", "check": "Array" }], "output": "Number", "colour": 220, "tooltip": "Calculates the Euclidean distance between two (x,y) points." },
+        { "type": "mp_is_finger_extended", "message0": "from hand landmarks %1 is %2 finger extended?", "args0": [ { "type": "input_value", "name": "HAND_LANDMARKS" }, { "type": "field_dropdown", "name": "FINGER", "options": [["Thumb", "Thumb"], ["Index", "Index"], ["Middle", "Middle"], ["Ring", "Ring"], ["Pinky", "Pinky"]] }], "output": "Boolean", "colour": 220, "tooltip": "Checks if a specific finger is extended." },
+        { "type": "mp_classify_hand_gesture", "message0": "classify gesture from hand landmarks %1", "args0": [{ "type": "input_value", "name": "HAND_LANDMARKS" }], "output": "String", "colour": 220, "tooltip": "Classifies a hand gesture into common types (Open, Fist, Peace, etc.)." },
+        { "type": "mp_count_raised_fingers", "message0": "count raised fingers from hand landmarks %1", "args0": [{"type": "input_value", "name": "HAND_LANDMARKS"}], "output": "Number", "colour": 220, "tooltip": "Counts the number of fingers extended (0-5) from a hand landmark object." },
+        { "type": "mp_is_mouth_open", "message0": "from face landmarks %1 is mouth open? threshold %2", "args0": [{ "type": "input_value", "name": "FACE_LANDMARKS" }, { "type": "input_value", "name": "THRESH", "check": "Number" }], "output": "Boolean", "colour": 220, "tooltip": "Checks if the mouth is open based on vertical distance of lips." },
+        
+        // === pyttsx3 Blocks ===
+        { "type": "tts_init", "message0": "tts: create engine", "output": null, "colour": 50, "tooltip": "Initializes the text-to-speech engine." },
+        { "type": "tts_say", "message0": "tts: engine %1 say %2", "args0": [{"type": "input_value", "name": "ENGINE"}, {"type": "input_value", "name": "TEXT"}], "previousStatement": null, "nextStatement": null, "colour": 50, "tooltip": "Queues a text string to be spoken." },
+        { "type": "tts_run_and_wait", "message0": "tts: engine %1 runAndWait", "args0": [{"type": "input_value", "name": "ENGINE"}], "previousStatement": null, "nextStatement": null, "colour": 50, "tooltip": "Blocks while processing all currently queued commands." },
+        { "type": "tts_set_property", "message0": "tts: engine %1 set %2 to %3", "args0": [{"type": "input_value", "name": "ENGINE"}, {"type": "field_dropdown", "name": "PROP", "options": [["rate", "rate"], ["volume", "volume"], ["voice", "voice"]]}, {"type": "input_value", "name": "VALUE"}], "previousStatement": null, "nextStatement": null, "colour": 50, "tooltip": "Sets a property of the TTS engine." },
+        { "type": "tts_get_property", "message0": "tts: engine %1 get %2", "args0": [{"type": "input_value", "name": "ENGINE"}, {"type": "field_dropdown", "name": "PROP", "options": [["rate", "rate"], ["volume", "volume"], ["voices", "voices"]]}], "output": null, "colour": 50, "tooltip": "Gets a property of the TTS engine." },
+        { "type": "tts_get_voice_by_id", "message0": "get voice with ID %1 from voices list %2", "args0": [{"type": "input_value", "name": "ID", "check": "Number"}, {"type": "input_value", "name": "VOICES", "check": "Array"}], "output": null, "colour": 50, "tooltip": "Selects a specific voice from the list of available voices." },
+
+        // === Time Blocks ===
+        { "type": "time_sleep", "message0": "time.sleep for %1 seconds", "args0": [{ "type": "input_value", "name": "SECONDS", "check": "Number" }], "previousStatement": null, "nextStatement": null, "colour": 65, "tooltip": "Pauses the program for a number of seconds." },
+        { "type": "time_get_current", "message0": "time.time()", "output": "Number", "colour": 65, "tooltip": "Returns the current system time in seconds since the Epoch." },
+
+        // === System & PyAutoGUI Blocks ===
+        { "type": "sbc_set_brightness", "message0": "set screen brightness to %1 %%", "args0": [{"type": "input_value", "name": "BRIGHTNESS", "check": "Number"}], "previousStatement": null, "nextStatement": null, "colour": 345, "tooltip": "Sets the screen brightness (0-100). Requires 'screen-brightness-control' library." },
+        { "type": "pyautogui_get_screen_size", "message0": "pyautogui.size()", "output": "Array", "colour": 330, "tooltip": "Gets the screen resolution as a (width, height) tuple." },
+        { "type": "pyautogui_move_to", "message0": "pyautogui.moveTo x: %1 y: %2", "args0": [{ "type": "input_value", "name": "X", "check": "Number" }, { "type": "input_value", "name": "Y", "check": "Number" }], "previousStatement": null, "nextStatement": null, "colour": 330, "tooltip": "Moves the mouse cursor to a specific position." },
+        { "type": "pyautogui_click", "message0": "pyautogui.click", "previousStatement": null, "nextStatement": null, "colour": 330, "tooltip": "Performs a mouse click." },
+        { "type": "pyautogui_press", "message0": "pyautogui.press key %1", "args0": [{ "type": "input_value", "name": "KEY", "check": "String" }], "previousStatement": null, "nextStatement": null, "colour": 330, "tooltip": "Presses a single key (e.g., 'space', 'enter', 'a')." },
+        { "type": "pyautogui_write", "message0": "pyautogui.write text %1", "args0": [{ "type": "input_value", "name": "TEXT", "check": "String" }], "previousStatement": null, "nextStatement": null, "colour": 330, "tooltip": "Types a string of text." },
+
+        // === NumPy Blocks ===
+        { "type": "np_array", "message0": "numpy array from list %1", "args0": [{ "type": "input_value", "name": "LIST", "check": "Array" }], "output": null, "colour": 260, "tooltip": "Creates a NumPy array." },
+        { "type": "np_create_blank_image", "message0": "numpy create blank image width %1 height %2 color (B,G,R) %3", "args0": [{"type": "input_value", "name": "WIDTH", "check": "Number"}, {"type": "input_value", "name": "HEIGHT", "check": "Number"}, {"type": "input_value", "name": "COLOR"}], "output": null, "colour": 260, "tooltip": "Creates a new blank image of a specific color. Color should be a (B, G, R) tuple." },
+        { "type": "np_interp", "message0": "numpy interp value %1 from range %2 to range %3", "args0": [{ "type": "input_value", "name": "X", "check": "Number" }, { "type": "input_value", "name": "XP", "check": "Array" }, { "type": "input_value", "name": "FP", "check": "Array" }], "output": "Number", "colour": 260, "tooltip": "Linear interpolation. Maps a value from one range to another." },
+        { "type": "np_sqrt", "message0": "numpy sqrt of %1", "args0": [{ "type": "input_value", "name": "NUM", "check": "Number" }], "output": "Number", "colour": 260, "tooltip": "Calculates the square root of a number." },
+        { "type": "np_zeros_like", "message0": "numpy zeros_like array %1", "args0": [{ "type": "input_value", "name": "ARRAY" }], "output": null, "colour": 260, "tooltip": "Creates a new array of zeros with the same shape and type as a given array." },
+        
+        // === Tkinter Blocks ===
+        { "type": "tk_create_window", "message0": "tk create main window", "output": null, "colour": 160, "tooltip": "Creates the main Tkinter window (root)." },
+        { "type": "tk_set_title", "message0": "set window %1 title to %2", "args0": [{ "type": "input_value", "name": "WINDOW" }, { "type": "input_value", "name": "TITLE", "check": "String" }], "previousStatement": null, "nextStatement": null, "colour": 160 },
+        { "type": "tk_set_geometry", "message0": "set window %1 geometry to %2", "args0": [{ "type": "input_value", "name": "WINDOW" }, { "type": "input_value", "name": "GEOMETRY", "check": "String" }], "previousStatement": null, "nextStatement": null, "colour": 160 },
+        { "type": "tk_create_widget", "message0": "create %1 on parent %2 with options %3", "args0": [{ "type": "field_dropdown", "name": "WIDGET", "options": [["Label", "Label"], ["Button", "Button"], ["Entry", "Entry"], ["Frame", "Frame"], ["Canvas", "Canvas"]] }, { "type": "input_value", "name": "PARENT" }, { "type": "input_value", "name": "OPTIONS", "check": "String" }], "output": null, "colour": 160, "tooltip": "Creates a Tkinter widget. Options as a string: 'text=\"Hello\", command=my_func'" },
+        { "type": "tk_pack_widget", "message0": "pack widget %1 with options %2", "args0": [{ "type": "input_value", "name": "WIDGET" }, { "type": "input_value", "name": "OPTIONS", "check": "String" }], "previousStatement": null, "nextStatement": null, "colour": 160, "tooltip": "Use the pack layout manager. Options as a string: 'side=\"left\", fill=\"both\"'" },
+        { "type": "tk_grid_widget", "message0": "grid widget %1 with options %2", "args0": [{ "type": "input_value", "name": "WIDGET" }, { "type": "input_value", "name": "OPTIONS", "check": "String" }], "previousStatement": null, "nextStatement": null, "colour": 160, "tooltip": "Use the grid layout manager. Options as a string: 'row=0, column=1'" },
+        { "type": "tk_widget_config", "message0": "configure widget %1 with options %2", "args0": [{ "type": "input_value", "name": "WIDGET" }, { "type": "input_value", "name": "OPTIONS", "check": "String" }], "previousStatement": null, "nextStatement": null, "colour": 160, "tooltip": "Configure widget properties after creation." },
+        { "type": "tk_entry_get", "message0": "get text from entry widget %1", "args0": [{ "type": "input_value", "name": "WIDGET" }], "output": "String", "colour": 160 },
+        // Add these to your Tkinter block definitions
+        { "type": "tk_widget_bind", "message0": "when on widget %1 event %2 occurs, call function %3", "args0": [{"type": "input_value", "name": "WIDGET"}, {"type": "input_value", "name": "EVENT", "check": "String"}, {"type": "input_value", "name": "FUNCTION"}], "previousStatement": null, "nextStatement": null, "colour": 160, "tooltip": "Binds a function to a widget event (e.g., '<<TreeviewSelect>>')." },
+        { "type": "tk_treeview_action", "message0": "treeview %1 action: %2 with parent %3 at index %4 values %5", "args0": [{"type": "input_value", "name": "WIDGET"}, {"type": "field_dropdown", "name": "ACTION", "options": [["insert", "insert"], ["delete all children", "delete_all"], ["get selection", "selection"], ["get item values", "item"]]}, {"type": "input_value", "name": "PARENT"}, {"type": "input_value", "name": "INDEX"}, {"type": "input_value", "name": "VALUES"}], "output": null, "inputsInline": false, "colour": 150, "tooltip": "Perform actions on a Treeview widget." },
+        { "type": "tk_treeview_config", "message0": "treeview %1 configure %2 named %3 with options %4", "args0": [{"type": "input_value", "name": "WIDGET"}, {"type": "field_dropdown", "name": "TARGET", "options": [["column", "column"], ["heading", "heading"]]}, {"type": "input_value", "name": "NAME"}, {"type": "input_value", "name": "OPTIONS"}], "previousStatement": null, "nextStatement": null, "colour": 150, "tooltip": "Configure Treeview columns and headings." },
+        { "type": "tk_messagebox", "message0": "show messagebox type: %1 title: %2 message: %3", "args0": [{"type": "field_dropdown", "name": "TYPE", "options": [["Info", "showinfo"], ["Warning", "showwarning"], ["Error", "showerror"], ["Ask Yes/No", "askyesno"]]}, {"type": "input_value", "name": "TITLE"}, {"type": "input_value", "name": "MESSAGE"}], "output": null, "colour": 160, "tooltip": "Displays a standard dialog box." },
+        { "type": "tk_entry_set", "message0": "set text of entry widget %1 to %2", "args0": [{ "type": "input_value", "name": "WIDGET" }, { "type": "input_value", "name": "TEXT", "check": "String" }], "previousStatement": null, "nextStatement": null, "colour": 160 },
+        { "type": "tk_mainloop", "message0": "start window %1 mainloop", "args0": [{ "type": "input_value", "name": "WINDOW" }], "previousStatement": null, "nextStatement": null, "colour": 160, "tooltip": "Starts the Tkinter event loop." }
+      ]);
+      
+      // --- 2. DEFINE GENERATOR FUNCTIONS (HOW TO CREATE PYTHON CODE) ---
+      
+      // --- YOLOv8 (Ultralytics) Generators ---
+      pythonGenerator.forBlock['yolo8_load_model'] = function(b) { addYoloV8Import(); const path = pythonGenerator.valueToCode(b, 'PATH', pythonGenerator.ORDER_NONE) || "''"; return [`YOLO(${path})`, pythonGenerator.ORDER_FUNCTION_CALL]; };
+      pythonGenerator.forBlock['yolo8_detect_objects'] = function(b) {
+        const image = pythonGenerator.valueToCode(b, 'IMAGE', pythonGenerator.ORDER_ATOMIC) || 'None';
+        const model = pythonGenerator.valueToCode(b, 'MODEL', pythonGenerator.ORDER_ATOMIC) || 'None';
+        const conf = pythonGenerator.valueToCode(b, 'CONF', pythonGenerator.ORDER_NONE) || 0.5;
+        const class_filter = `'${b.getFieldValue('CLASS_FILTER')}'`;
+        const funcName = pythonGenerator.provideFunction_( 'yolo8_perform_detection',
+            ['def ' + pythonGenerator.FUNCTION_NAME_PLACEHOLDER_ + '(image, model, conf_threshold, class_filter):',
+            '  if image is None or model is None: return []',
+            '  results = model(image, verbose=False)',
+            '  detections = []',
+            '  for box in results[0].boxes:',
+            '    confidence = float(box.conf[0])',
+            '    if confidence >= conf_threshold:',
+            '      class_id = int(box.cls[0])',
+            '      class_name = model.names[class_id]',
+            '      if class_filter == "all" or class_name == class_filter:',
+            "        detections.append({'class_name': class_name, 'confidence': confidence, 'box': [int(coord) for coord in box.xyxy[0]]})",
+            '  return detections']
+        );
+        return [`${funcName}(${image}, ${model}, ${conf}, ${class_filter})`, pythonGenerator.ORDER_FUNCTION_CALL];
+      };
+      pythonGenerator.forBlock['yolo8_for_each_detection'] = function(b) { const loopVar = pythonGenerator.getVariableName(b.getFieldValue('VAR')); const detections = pythonGenerator.valueToCode(b, 'DETECTIONS', pythonGenerator.ORDER_NONE) || '[]'; const branch = pythonGenerator.statementToCode(b, 'DO'); return `for ${loopVar} in (${detections} or []):\n${branch || '  pass'}`; };
+      pythonGenerator.forBlock['yolo8_get_detection_info'] = function(b) { const detection = pythonGenerator.valueToCode(b, 'DETECTION', pythonGenerator.ORDER_ATOMIC) || '{}'; const info = b.getFieldValue('INFO'); return [`${detection}.get('${info}')`, pythonGenerator.ORDER_MEMBER]; };
+      pythonGenerator.forBlock['yolo8_draw_detection'] = function(b) {
+          addCv2Import();
+          const image = pythonGenerator.valueToCode(b, 'IMAGE', pythonGenerator.ORDER_ATOMIC) || 'None';
+          const detection = pythonGenerator.valueToCode(b, 'DETECTION', pythonGenerator.ORDER_ATOMIC) || '{}';
+          const funcName = pythonGenerator.provideFunction_( 'draw_yolo8_detection',
+              ['def ' + pythonGenerator.FUNCTION_NAME_PLACEHOLDER_ + '(image, detection):',
+               '  if not detection or image is None: return',
+               "  box = detection.get('box')",
+               '  if not box: return',
+               "  label = f\"{detection.get('class_name', '')} {detection.get('confidence', 0.0):.2f}\"",
+               '  x1, y1, x2, y2 = box',
+               '  color = (0, 255, 0)',
+               '  cv2.rectangle(image, (x1, y1), (x2, y2), color, 2)',
+               '  cv2.putText(image, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)']
+          );
+          return `${funcName}(${image}, ${detection})\n`;
+      };
+      
+      // Python-specific
+      pythonGenerator.forBlock['python_print'] = function(b) { const msg = pythonGenerator.valueToCode(b, 'TEXT', pythonGenerator.ORDER_NONE) || "''"; return 'print(' + msg + ')\n'; };
+      pythonGenerator.forBlock['python_input'] = function(b) { const prompt = pythonGenerator.valueToCode(b, 'PROMPT', pythonGenerator.ORDER_NONE) || "''"; return ['input(' + prompt + ')', pythonGenerator.ORDER_FUNCTION_CALL]; };
+      pythonGenerator.forBlock['python_type_cast'] = function(b) { const type = b.getFieldValue('TYPE'); const value = pythonGenerator.valueToCode(b, 'VALUE', pythonGenerator.ORDER_NONE) || '0'; return [type + '(' + value + ')', pythonGenerator.ORDER_FUNCTION_CALL]; };
+
+      // --- Turtle Generators ---
+      pythonGenerator.forBlock['turtle_forward'] = function(b) { addTurtleImport(); const v=pythonGenerator.valueToCode(b,'VALUE',pythonGenerator.ORDER_NONE)||0; return `turtle.forward(${v})\n`; };
+      pythonGenerator.forBlock['turtle_backward'] = function(b) { addTurtleImport(); const v=pythonGenerator.valueToCode(b,'VALUE',pythonGenerator.ORDER_NONE)||0; return `turtle.backward(${v})\n`; };
+      pythonGenerator.forBlock['turtle_right'] = function(b) { addTurtleImport(); const v=pythonGenerator.valueToCode(b,'VALUE',pythonGenerator.ORDER_NONE)||0; return `turtle.right(${v})\n`; };
+      pythonGenerator.forBlock['turtle_left'] = function(b) { addTurtleImport(); const v=pythonGenerator.valueToCode(b,'VALUE',pythonGenerator.ORDER_NONE)||0; return `turtle.left(${v})\n`; };
+      pythonGenerator.forBlock['turtle_penup'] = function(b) { addTurtleImport(); return 'turtle.penup()\n'; };
+      pythonGenerator.forBlock['turtle_pendown'] = function(b) { addTurtleImport(); return 'turtle.pendown()\n'; };
+      pythonGenerator.forBlock['turtle_pencolor'] = function(b) { addTurtleImport(); const c=pythonGenerator.valueToCode(b,'COLOR',pythonGenerator.ORDER_NONE)||"''"; return `turtle.pencolor(${c})\n`; };
+      pythonGenerator.forBlock['turtle_pensize'] = function(b) { addTurtleImport(); const s=pythonGenerator.valueToCode(b,'SIZE',pythonGenerator.ORDER_NONE)||1; return `turtle.pensize(${s})\n`; };
+      pythonGenerator.forBlock['turtle_goto'] = function(b) { addTurtleImport(); const x=pythonGenerator.valueToCode(b,'X',pythonGenerator.ORDER_NONE)||0; const y=pythonGenerator.valueToCode(b,'Y',pythonGenerator.ORDER_NONE)||0; return `turtle.goto(${x}, ${y})\n`; };
+      pythonGenerator.forBlock['turtle_speed'] = function(b) { addTurtleImport(); const s=pythonGenerator.valueToCode(b,'SPEED',pythonGenerator.ORDER_NONE)||10; return `turtle.speed(${s})\n`; };
+      pythonGenerator.forBlock['turtle_hideturtle'] = function(b) { addTurtleImport(); return 'turtle.hideturtle()\n'; };
+      pythonGenerator.forBlock['turtle_showturtle'] = function(b) { addTurtleImport(); return 'turtle.showturtle()\n'; };
+      pythonGenerator.forBlock['turtle_begin_fill'] = function(b) { addTurtleImport(); return 'turtle.begin_fill()\n'; };
+      pythonGenerator.forBlock['turtle_end_fill'] = function(b) { addTurtleImport(); return 'turtle.end_fill()\n'; };
+      pythonGenerator.forBlock['turtle_done'] = function(b) { addTurtleImport(); return 'turtle.done()\n'; };
+
+      // --- OpenCV Generators ---
+      pythonGenerator.forBlock['cv_imread'] = function(b) { addCv2Import(); const p=pythonGenerator.valueToCode(b,'PATH',pythonGenerator.ORDER_NONE)||"''"; return [`cv2.imread(${p})`, pythonGenerator.ORDER_FUNCTION_CALL]; };
+      pythonGenerator.forBlock['cv_imshow'] = function(b) { addCv2Import(); const t=pythonGenerator.valueToCode(b,'TITLE',pythonGenerator.ORDER_NONE)||"''"; const i=pythonGenerator.valueToCode(b,'IMAGE',pythonGenerator.ORDER_ATOMIC)||'None'; return `cv2.imshow(${t}, ${i})\n`; };
+      pythonGenerator.forBlock['cv_waitkey'] = function(b) { addCv2Import(); const d=pythonGenerator.valueToCode(b,'DELAY',pythonGenerator.ORDER_NONE)||0; return `cv2.waitKey(${d})\n`; };
+      pythonGenerator.forBlock['cv_destroy_all_windows'] = function(b) { addCv2Import(); return 'cv2.destroyAllWindows()\n'; };
+      pythonGenerator.forBlock['cv_imwrite'] = function(b) { addCv2Import(); const p=pythonGenerator.valueToCode(b,'PATH',pythonGenerator.ORDER_NONE)||"''"; const i=pythonGenerator.valueToCode(b,'IMAGE',pythonGenerator.ORDER_ATOMIC)||'None'; return `cv2.imwrite(${p}, ${i})\n`; };
+      pythonGenerator.forBlock['cv_resize'] = function(b) { addCv2Import(); const i=pythonGenerator.valueToCode(b,'IMAGE',pythonGenerator.ORDER_ATOMIC)||'None'; const w=pythonGenerator.valueToCode(b,'WIDTH',pythonGenerator.ORDER_NONE)||0; const h=pythonGenerator.valueToCode(b,'HEIGHT',pythonGenerator.ORDER_NONE)||0; return [`cv2.resize(${i}, (${w}, ${h}))`, pythonGenerator.ORDER_FUNCTION_CALL]; };
+      pythonGenerator.forBlock['cv_flip'] = function(b) { addCv2Import(); const image = pythonGenerator.valueToCode(b, 'IMAGE', pythonGenerator.ORDER_ATOMIC) || 'None'; const code = pythonGenerator.valueToCode(b, 'CODE', pythonGenerator.ORDER_NONE) || '1'; return [`cv2.flip(${image}, ${code})`, pythonGenerator.ORDER_FUNCTION_CALL]; };
+      pythonGenerator.forBlock['cv_add_weighted'] = function(b) { addCv2Import(); const src1 = pythonGenerator.valueToCode(b, 'SRC1', pythonGenerator.ORDER_ATOMIC) || 'None'; const alpha = pythonGenerator.valueToCode(b, 'ALPHA', pythonGenerator.ORDER_NONE) || 0.5; const src2 = pythonGenerator.valueToCode(b, 'SRC2', pythonGenerator.ORDER_ATOMIC) || 'None'; const beta = pythonGenerator.valueToCode(b, 'BETA', pythonGenerator.ORDER_NONE) || 0.5; const gamma = pythonGenerator.valueToCode(b, 'GAMMA', pythonGenerator.ORDER_NONE) || 0; return [`cv2.addWeighted(${src1}, ${alpha}, ${src2}, ${beta}, ${gamma})`, pythonGenerator.ORDER_FUNCTION_CALL]; };
+      pythonGenerator.forBlock['cv_get_image_property'] = function(b) { const prop = b.getFieldValue('PROP'); const image = pythonGenerator.valueToCode(b, 'IMAGE', pythonGenerator.ORDER_ATOMIC) || 'None'; return [`${image}.shape[${prop}]`, pythonGenerator.ORDER_MEMBER]; };
+      pythonGenerator.forBlock['cv_cvtcolor'] = function(b) { addCv2Import(); const i=pythonGenerator.valueToCode(b,'IMAGE',pythonGenerator.ORDER_ATOMIC)||'None'; const c=b.getFieldValue('CONVERSION'); return [`cv2.cvtColor(${i}, cv2.${c})`, pythonGenerator.ORDER_FUNCTION_CALL]; };
+      pythonGenerator.forBlock['cv_threshold'] = function(b) { addCv2Import(); const i=pythonGenerator.valueToCode(b,'IMAGE',pythonGenerator.ORDER_ATOMIC)||'None'; const t=pythonGenerator.valueToCode(b,'THRESH',pythonGenerator.ORDER_NONE)||127; const m=pythonGenerator.valueToCode(b,'MAXVAL',pythonGenerator.ORDER_NONE)||255; return [`cv2.threshold(${i}, ${t}, ${m}, cv2.THRESH_BINARY)[1]`, pythonGenerator.ORDER_FUNCTION_CALL]; };
+      pythonGenerator.forBlock['cv_canny'] = function(b) { addCv2Import(); const i=pythonGenerator.valueToCode(b,'IMAGE',pythonGenerator.ORDER_ATOMIC)||'None'; const t1=pythonGenerator.valueToCode(b,'T1',pythonGenerator.ORDER_NONE)||100; const t2=pythonGenerator.valueToCode(b,'T2',pythonGenerator.ORDER_NONE)||200; return [`cv2.Canny(${i}, ${t1}, ${t2})`, pythonGenerator.ORDER_FUNCTION_CALL]; };
+      pythonGenerator.forBlock['cv_gaussian_blur'] = function(b) { addCv2Import(); const i=pythonGenerator.valueToCode(b,'IMAGE',pythonGenerator.ORDER_ATOMIC)||'None'; const w=pythonGenerator.valueToCode(b,'K_WIDTH',pythonGenerator.ORDER_NONE)||5; const h=pythonGenerator.valueToCode(b,'K_HEIGHT',pythonGenerator.ORDER_NONE)||5; return [`cv2.GaussianBlur(${i}, (${w}, ${h}), 0)`, pythonGenerator.ORDER_FUNCTION_CALL]; };
+      pythonGenerator.forBlock['cv_draw_line'] = function(b) { addCv2Import(); const i=pythonGenerator.valueToCode(b,'IMAGE',pythonGenerator.ORDER_ATOMIC)||'None'; const p1=`(${pythonGenerator.valueToCode(b,'X1',pythonGenerator.ORDER_NONE)||0}, ${pythonGenerator.valueToCode(b,'Y1',pythonGenerator.ORDER_NONE)||0})`; const p2=`(${pythonGenerator.valueToCode(b,'X2',pythonGenerator.ORDER_NONE)||0}, ${pythonGenerator.valueToCode(b,'Y2',pythonGenerator.ORDER_NONE)||0})`; const c=pythonGenerator.valueToCode(b,'COLOR',pythonGenerator.ORDER_NONE)||'(0,0,255)'; const th=pythonGenerator.valueToCode(b,'THICKNESS',pythonGenerator.ORDER_NONE)||1; return `cv2.line(${i}, ${p1}, ${p2}, ${c}, ${th})\n`; };
+      pythonGenerator.forBlock['cv_draw_rectangle'] = function(b) { addCv2Import(); const i=pythonGenerator.valueToCode(b,'IMAGE',pythonGenerator.ORDER_ATOMIC)||'None'; const p1=`(${pythonGenerator.valueToCode(b,'X1',pythonGenerator.ORDER_NONE)||0}, ${pythonGenerator.valueToCode(b,'Y1',pythonGenerator.ORDER_NONE)||0})`; const p2=`(${pythonGenerator.valueToCode(b,'X2',pythonGenerator.ORDER_NONE)||0}, ${pythonGenerator.valueToCode(b,'Y2',pythonGenerator.ORDER_NONE)||0})`; const c=pythonGenerator.valueToCode(b,'COLOR',pythonGenerator.ORDER_NONE)||'(0,255,0)'; const th=pythonGenerator.valueToCode(b,'THICKNESS',pythonGenerator.ORDER_NONE)||1; return `cv2.rectangle(${i}, ${p1}, ${p2}, ${c}, ${th})\n`; };
+      pythonGenerator.forBlock['cv_draw_circle'] = function(b) { addCv2Import(); const i=pythonGenerator.valueToCode(b,'IMAGE',pythonGenerator.ORDER_ATOMIC)||'None'; const p=`(${pythonGenerator.valueToCode(b,'X',pythonGenerator.ORDER_NONE)||0}, ${pythonGenerator.valueToCode(b,'Y',pythonGenerator.ORDER_NONE)||0})`; const r=pythonGenerator.valueToCode(b,'RADIUS',pythonGenerator.ORDER_NONE)||10; const c=pythonGenerator.valueToCode(b,'COLOR',pythonGenerator.ORDER_NONE)||'(255,0,0)'; const th=pythonGenerator.valueToCode(b,'THICKNESS',pythonGenerator.ORDER_NONE)||1; return `cv2.circle(${i}, ${p}, ${r}, ${c}, ${th})\n`; };
+      pythonGenerator.forBlock['cv_put_text'] = function(b) { addCv2Import(); const i=pythonGenerator.valueToCode(b,'IMAGE',pythonGenerator.ORDER_ATOMIC)||'None'; const t=pythonGenerator.valueToCode(b,'TEXT',pythonGenerator.ORDER_NONE)||"''"; const p=`(${pythonGenerator.valueToCode(b,'X',pythonGenerator.ORDER_NONE)||0}, ${pythonGenerator.valueToCode(b,'Y',pythonGenerator.ORDER_NONE)||0})`; const s=pythonGenerator.valueToCode(b,'SCALE',pythonGenerator.ORDER_NONE)||1; const c=pythonGenerator.valueToCode(b,'COLOR',pythonGenerator.ORDER_NONE)||'(255,255,255)'; const th=pythonGenerator.valueToCode(b,'THICKNESS',pythonGenerator.ORDER_NONE)||1; return `cv2.putText(${i}, str(${t}), ${p}, cv2.FONT_HERSHEY_SIMPLEX, ${s}, ${c}, ${th})\n`; };
+      pythonGenerator.forBlock['cv_videocapture'] = function(b) { addCv2Import(); const i=pythonGenerator.valueToCode(b,'INDEX',pythonGenerator.ORDER_NONE)||0; return [`cv2.VideoCapture(${i})`, pythonGenerator.ORDER_FUNCTION_CALL]; };
+      pythonGenerator.forBlock['cv_read_and_check'] = function(block) {
+        const capture = pythonGenerator.valueToCode(block, 'CAPTURE', pythonGenerator.ORDER_ATOMIC) || 'None';
+        const frameVar = pythonGenerator.getVariableName(block.getFieldValue('VAR'));
+        const branch = pythonGenerator.statementToCode(block, 'DO');
+        const code = `ret, ${frameVar} = ${capture}.read()\nif ret:\n${branch || '  pass'}`;
+        return code;
+      };
+      pythonGenerator.forBlock['cv_cap_release'] = function(b) { addCv2Import(); const c=pythonGenerator.valueToCode(b,'CAPTURE',pythonGenerator.ORDER_ATOMIC)||'None'; return `${c}.release()\n`; };
+      pythonGenerator.forBlock['cv_get_key_press'] = function(b) { addCv2Import(); return [`chr(cv2.waitKey(1) & 0xFF)`, pythonGenerator.ORDER_FUNCTION_CALL]; };
+      
+      pythonGenerator.forBlock['cv_overlay_image'] = function(b) {
+        addCv2Import(); // Ensures cv2 is imported
+        const overlay = pythonGenerator.valueToCode(b, 'OVERLAY', pythonGenerator.ORDER_ATOMIC) || 'None';
+        const target = pythonGenerator.valueToCode(b, 'TARGET', pythonGenerator.ORDER_ATOMIC) || 'None';
+        const x = pythonGenerator.valueToCode(b, 'X', pythonGenerator.ORDER_NONE) || 0;
+        const y = pythonGenerator.valueToCode(b, 'Y', pythonGenerator.ORDER_NONE) || 0;
+
+        // This helper function makes the generated code safer and cleaner
+        const funcName = pythonGenerator.provideFunction_('perform_image_overlay', [
+          'def ' + pythonGenerator.FUNCTION_NAME_PLACEHOLDER_ + '(target_img, overlay_img, x, y):',
+          '  # Do nothing if either image is missing',
+          '  if target_img is None or overlay_img is None: return',
+          '  try:',
+          '    # Get the height and width of the overlay image',
+          '    h, w, _ = overlay_img.shape',
+          '    # Perform the slice assignment',
+          '    target_img[y:y+h, x:x+w] = overlay_img',
+          '  except Exception as e:',
+          '    # This prevents the program from crashing if the overlay goes out of bounds',
+          '    print(f"Could not perform overlay: {e}")'
+        ]);
+
+        return `${funcName}(${target}, ${overlay}, int(${x}), int(${y}))\n`;
+      };
+
+
+      // === MediaPipe Generators ===
+      pythonGenerator.forBlock['mp_create_hands'] = function(b) { addHandsImport(); const n=pythonGenerator.valueToCode(b,'NUM',pythonGenerator.ORDER_NONE)||1; const dc=pythonGenerator.valueToCode(b,'DET_CONF',pythonGenerator.ORDER_NONE)||0.5; const tc=pythonGenerator.valueToCode(b,'TRK_CONF',pythonGenerator.ORDER_NONE)||0.5; return [`mp_hands.Hands(max_num_hands=${n}, min_detection_confidence=${dc}, min_tracking_confidence=${tc})`, pythonGenerator.ORDER_FUNCTION_CALL]; };
+      pythonGenerator.forBlock['mp_create_pose'] = function(b) { addPoseImport(); const dc=pythonGenerator.valueToCode(b,'DET_CONF',pythonGenerator.ORDER_NONE)||0.5; const tc=pythonGenerator.valueToCode(b,'TRK_CONF',pythonGenerator.ORDER_NONE)||0.5; return [`mp_pose.Pose(min_detection_confidence=${dc}, min_tracking_confidence=${tc})`, pythonGenerator.ORDER_FUNCTION_CALL]; };
+      pythonGenerator.forBlock['mp_create_face_mesh'] = function(b) { addFaceMeshImport(); const n=pythonGenerator.valueToCode(b,'NUM',pythonGenerator.ORDER_NONE)||1; const dc=pythonGenerator.valueToCode(b,'DET_CONF',pythonGenerator.ORDER_NONE)||0.5; return [`mp_face_mesh.FaceMesh(max_num_faces=${n}, min_detection_confidence=${dc})`, pythonGenerator.ORDER_FUNCTION_CALL]; };
+      pythonGenerator.forBlock['mp_create_holistic'] = function(b) { addHolisticImport(); const dc=pythonGenerator.valueToCode(b,'DET_CONF',pythonGenerator.ORDER_NONE)||0.5; const tc=pythonGenerator.valueToCode(b,'TRK_CONF',pythonGenerator.ORDER_NONE)||0.5; return [`mp_holistic.Holistic(min_detection_confidence=${dc}, min_tracking_confidence=${tc})`, pythonGenerator.ORDER_FUNCTION_CALL]; };
+      pythonGenerator.forBlock['mp_create_face_detection'] = function(b) { addFaceDetectionImport(); const c = pythonGenerator.valueToCode(b, 'CONF', pythonGenerator.ORDER_NONE) || 0.5; return [`mp_face_detection.FaceDetection(min_detection_confidence=${c})`, pythonGenerator.ORDER_FUNCTION_CALL]; };
+      pythonGenerator.forBlock['mp_create_selfie_segmentation'] = function(b) { addSelfieSegmentationImport(); const m = b.getFieldValue('MODEL_TYPE'); return [`mp_selfie_segmentation.SelfieSegmentation(model_selection=${m})`, pythonGenerator.ORDER_FUNCTION_CALL]; };
+      pythonGenerator.forBlock['mp_process'] = function(b) { addMediaPipeImport(); const i=pythonGenerator.valueToCode(b,'IMAGE',pythonGenerator.ORDER_ATOMIC)||'None'; const m=pythonGenerator.valueToCode(b,'MODEL',pythonGenerator.ORDER_ATOMIC)||'None'; return [`${m}.process(${i})`, pythonGenerator.ORDER_FUNCTION_CALL]; };
+      pythonGenerator.forBlock['mp_if_results'] = function(b) { const r=pythonGenerator.valueToCode(b,'RESULTS',pythonGenerator.ORDER_ATOMIC)||'None'; const l=b.getFieldValue('LANDMARK_TYPE'); const d=pythonGenerator.statementToCode(b, 'DO'); return `if ${r} and ${r}.${l}:\n${d || '  pass'}`; };
+      pythonGenerator.forBlock['mp_for_each_landmark'] = function(block) {
+        const results = pythonGenerator.valueToCode(block, 'RESULTS', pythonGenerator.ORDER_ATOMIC) || 'None';
+        const landmarkType = block.getFieldValue('LANDMARK_TYPE');
+        const loopVar = pythonGenerator.getVariableName(block.getFieldValue('VAR'));
+        let branch = pythonGenerator.statementToCode(block, 'DO');
+        branch = pythonGenerator.addLoopTrap(branch, block.id);
+
+        const forLoop = `for ${loopVar} in ${results}.${landmarkType}:\n` + (branch || '  pass\n');
+        const code = `if ${results} and ${results}.${landmarkType}:\n` + pythonGenerator.prefixLines(forLoop, '  ');
+        return code;
+      };
+
+      pythonGenerator.forBlock['mp_for_each_detection'] = function(block) {
+        const results = pythonGenerator.valueToCode(block, 'RESULTS', pythonGenerator.ORDER_ATOMIC) || 'None';
+        const loopVar = pythonGenerator.getVariableName(block.getFieldValue('VAR'));
+        let branch = pythonGenerator.statementToCode(block, 'DO');
+        branch = pythonGenerator.addLoopTrap(branch, block.id);
+        const forLoop = `for ${loopVar} in ${results}.detections:\n` + (branch || '  pass\n');
+        const code = `if ${results} and ${results}.detections:\n` + pythonGenerator.prefixLines(forLoop, '  ');
+        return code;
+      };
+      
+      pythonGenerator.forBlock['mp_draw_landmarks'] = function(b) {
+        pythonGenerator.definitions_['import_mp_drawing'] = 'mp_drawing = mp.solutions.drawing_utils';
+        const image = pythonGenerator.valueToCode(b, 'IMAGE', pythonGenerator.ORDER_ATOMIC) || 'None';
+        let landmark_source = pythonGenerator.valueToCode(b, 'LANDMARKS', pythonGenerator.ORDER_ATOMIC) || 'None';
+        const connectionType = b.getFieldValue('CONNECTION_TYPE');
+        let connection_obj;
+
+        switch (connectionType) {
+          case 'HAND_CONNECTIONS': addHandsImport(); connection_obj = 'mp_hands.HAND_CONNECTIONS'; break;
+          case 'POSE_CONNECTIONS': addPoseImport(); connection_obj = 'mp_pose.POSE_CONNECTIONS'; landmark_source += '.pose_landmarks'; break;
+          case 'FACEMESH_TESSELATION': addFaceMeshImport(); connection_obj = 'mp_face_mesh.FACEMESH_TESSELATION'; break;
+          case 'FACEMESH_CONTOURS': addFaceMeshImport(); connection_obj = 'mp_face_mesh.FACEMESH_CONTOURS'; break;
+          case 'FACEMESH_IRISES': addFaceMeshImport(); connection_obj = 'mp_face_mesh.FACEMESH_IRISES'; break;
+          default: connection_obj = 'None';
+        }
+        return `mp_drawing.draw_landmarks(image=${image}, landmark_list=${landmark_source}, connections=${connection_obj})\n`;
+      };
+
+      pythonGenerator.forBlock['mp_draw_detection'] = function(b) { pythonGenerator.definitions_['import_mp_drawing'] = 'mp_drawing = mp.solutions.drawing_utils'; const image = pythonGenerator.valueToCode(b, 'IMAGE', pythonGenerator.ORDER_ATOMIC) || 'None'; const detection = pythonGenerator.valueToCode(b, 'DETECTION', pythonGenerator.ORDER_ATOMIC) || 'None'; return `mp_drawing.draw_detection(${image}, ${detection})\n`; };
+      pythonGenerator.forBlock['mp_style_background'] = function(b) { addNumpyImport(); addCv2Import(); const image = pythonGenerator.valueToCode(b, 'IMAGE', pythonGenerator.ORDER_ATOMIC) || 'None'; const results = pythonGenerator.valueToCode(b, 'RESULTS', pythonGenerator.ORDER_ATOMIC) || 'None'; const style = b.getFieldValue('STYLE'); let bg_image_code; if (style === 'BLUR') { bg_image_code = `cv2.GaussianBlur(${image}, (55, 55), 0)`; } else { const color = pythonGenerator.valueToCode(b, 'COLOR', pythonGenerator.ORDER_NONE) || '(192, 192, 192)'; const varName = pythonGenerator.variableDB_.getDistinctName('bg_image', 'VARIABLE'); pythonGenerator.definitions_['bg_image_setup_' + varName] = `${varName} = np.zeros_like(${image}, dtype=np.uint8)\n${varName}[:] = ${color}`; bg_image_code = varName; } const condition = `np.stack((${results}.segmentation_mask,) * 3, axis=-1) > 0.1`; const code = `np.where(${condition}, ${image}, ${bg_image_code})`; return [code, pythonGenerator.ORDER_FUNCTION_CALL]; };
+      pythonGenerator.forBlock['mp_get_landmark_coords'] = function(b) { const id=pythonGenerator.valueToCode(b,'ID',pythonGenerator.ORDER_NONE)||0; const l=pythonGenerator.valueToCode(b,'LANDMARK_ITEM',pythonGenerator.ORDER_ATOMIC)||'None'; const i=pythonGenerator.valueToCode(b,'IMAGE',pythonGenerator.ORDER_ATOMIC)||'None'; const code = `(int(${l}.landmark[${id}].x * ${i}.shape[1]), int(${l}.landmark[${id}].y * ${i}.shape[0]))`; return [code, pythonGenerator.ORDER_FUNCTION_CALL]; };
+      pythonGenerator.forBlock['mp_get_specific_landmark'] = function(b) { const landmark_item = pythonGenerator.valueToCode(b, 'LANDMARK_ITEM', pythonGenerator.ORDER_ATOMIC) || 'None'; const landmark_id = b.getFieldValue('LANDMARK_NAME'); return [`${landmark_item}.landmark[${landmark_id}]`, pythonGenerator.ORDER_MEMBER]; };
+      pythonGenerator.forBlock['mp_calc_distance'] = function(b) { addMathImport(); const p1 = pythonGenerator.valueToCode(b, 'P1', pythonGenerator.ORDER_ATOMIC) || '(0,0)'; const p2 = pythonGenerator.valueToCode(b, 'P2', pythonGenerator.ORDER_ATOMIC) || '(0,0)'; return [`math.sqrt((${p2}[0] - ${p1}[0])**2 + (${p2}[1] - ${p1}[1])**2)`, pythonGenerator.ORDER_FUNCTION_CALL]; };
+      pythonGenerator.forBlock['mp_is_finger_extended'] = function(b) { addMathImport(); const hand_landmarks = pythonGenerator.valueToCode(b, 'HAND_LANDMARKS', pythonGenerator.ORDER_ATOMIC) || 'None'; const finger = b.getFieldValue('FINGER');
+          const funcName = pythonGenerator.provideFunction_('mp_is_finger_extended',
+            ['def ' + pythonGenerator.FUNCTION_NAME_PLACEHOLDER_ + '(hand_landmarks, finger_name):',
+            '  if not hand_landmarks: return False', '  lm = hand_landmarks.landmark',
+            '  finger_indices = { "Thumb": (4, 2), "Index": (8, 6), "Middle": (12, 10), "Ring": (16, 14), "Pinky": (20, 18) }',
+            '  tip_idx, base_idx = finger_indices.get(finger_name, (0,0))', '  if tip_idx == 0: return False',
+            '  tip, base, wrist = lm[tip_idx], lm[base_idx], lm[0]',
+            '  dist_tip_wrist = math.sqrt((tip.x - wrist.x)**2 + (tip.y - wrist.y)**2)',
+            '  dist_base_wrist = math.sqrt((base.x - wrist.x)**2 + (base.y - wrist.y)**2)',
+            '  return dist_tip_wrist > dist_base_wrist']
+          );
+          return [`${funcName}(${hand_landmarks}, '${finger}')`, pythonGenerator.ORDER_FUNCTION_CALL];
+      };
+      pythonGenerator.forBlock['mp_classify_hand_gesture'] = function(b) { const hand_landmarks = pythonGenerator.valueToCode(b, 'HAND_LANDMARKS', pythonGenerator.ORDER_ATOMIC) || 'None';
+          const funcName = pythonGenerator.provideFunction_('mp_classify_hand_gesture',
+            ['def ' + pythonGenerator.FUNCTION_NAME_PLACEHOLDER_ + '(hand_landmarks):',
+            '  if not hand_landmarks: return "Unknown"', '  lm = hand_landmarks.landmark',
+            '  def is_extended(tip, pip): return lm[tip].y < lm[pip].y',
+            '  thumb_extended = (lm[4].x < lm[3].x) if (lm[4].x < lm[17].x) else (lm[4].x > lm[3].x)',
+            '  index_extended = is_extended(8, 6)', '  middle_extended = is_extended(12, 10)',
+            '  ring_extended = is_extended(16, 14)', '  pinky_extended = is_extended(20, 18)',
+            '  if thumb_extended and index_extended and middle_extended and ring_extended and pinky_extended: return "Open Hand"',
+            '  if not index_extended and not middle_extended and not ring_extended and not pinky_extended: return "Fist"',
+            '  if index_extended and middle_extended and not ring_extended and not pinky_extended: return "Peace"',
+            '  if index_extended and not middle_extended and not ring_extended and not pinky_extended: return "Pointing"',
+            '  return "Unknown"']
+          );
+          return [`${funcName}(${hand_landmarks})`, pythonGenerator.ORDER_FUNCTION_CALL];
+      };
+      pythonGenerator.forBlock['mp_count_raised_fingers'] = function(b) {
+        const hand_landmarks = pythonGenerator.valueToCode(b, 'HAND_LANDMARKS', pythonGenerator.ORDER_ATOMIC) || 'None';
+        const funcName = pythonGenerator.provideFunction_('mp_count_raised_fingers',
+            ['def ' + pythonGenerator.FUNCTION_NAME_PLACEHOLDER_ + '(hand_lm):',
+             '  if not hand_lm: return 0',
+             '  lm = hand_lm.landmark',
+             '  finger_tips = [8, 12, 16, 20]',
+             '  count = 0',
+             '  # For a flipped right hand, a raised thumb has a lower x than the joint below it',
+             '  if lm[4].x < lm[3].x:',
+             '    count += 1',
+             '  # Check 4 fingers (Index to Pinky) based on y-coordinate',
+             '  for tip_idx in finger_tips:',
+             '    if lm[tip_idx].y < lm[tip_idx - 2].y:',
+             '      count += 1',
+             '  return count'
+            ]
+        );
+        return [`${funcName}(${hand_landmarks})`, pythonGenerator.ORDER_FUNCTION_CALL];
+      };
+      pythonGenerator.forBlock['mp_is_mouth_open'] = function(b) { addMathImport(); const face_landmarks = pythonGenerator.valueToCode(b, 'FACE_LANDMARKS', pythonGenerator.ORDER_ATOMIC) || 'None'; const threshold = pythonGenerator.valueToCode(b, 'THRESH', pythonGenerator.ORDER_NONE) || '0.04';
+          const funcName = pythonGenerator.provideFunction_('mp_is_mouth_open',
+            ['def ' + pythonGenerator.FUNCTION_NAME_PLACEHOLDER_ + '(face_landmarks, threshold):',
+             '  if not face_landmarks: return False', '  lm = face_landmarks.landmark',
+             '  upper_lip, lower_lip = lm[13], lm[14]',
+             '  mouth_opening = math.sqrt((upper_lip.x - lower_lip.x)**2 + (upper_lip.y - lower_lip.y)**2)',
+             '  mouth_left, mouth_right = lm[61], lm[291]',
+             '  mouth_width = math.sqrt((mouth_left.x - mouth_right.x)**2 + (mouth_left.y - mouth_right.y)**2)',
+             '  if mouth_width == 0: return False',
+             '  return (mouth_opening / mouth_width) > threshold'
+            ]
+          );
+          return [`${funcName}(${face_landmarks}, ${threshold})`, pythonGenerator.ORDER_FUNCTION_CALL];
+      };
+      
+      // pyttsx3 Generators
+      pythonGenerator.forBlock['tts_init'] = function(b) { addPyttsx3Import(); return ['pyttsx3.init()', pythonGenerator.ORDER_FUNCTION_CALL]; };
+      pythonGenerator.forBlock['tts_say'] = function(b) { const engine = pythonGenerator.valueToCode(b, 'ENGINE', pythonGenerator.ORDER_ATOMIC) || 'None'; const text = pythonGenerator.valueToCode(b, 'TEXT', pythonGenerator.ORDER_NONE) || "''"; return `${engine}.say(${text})\n`; };
+      pythonGenerator.forBlock['tts_run_and_wait'] = function(b) { const engine = pythonGenerator.valueToCode(b, 'ENGINE', pythonGenerator.ORDER_ATOMIC) || 'None'; return `${engine}.runAndWait()\n`; };
+      pythonGenerator.forBlock['tts_set_property'] = function(b) { const engine = pythonGenerator.valueToCode(b, 'ENGINE', pythonGenerator.ORDER_ATOMIC) || 'None'; const prop = b.getFieldValue('PROP'); const value = pythonGenerator.valueToCode(b, 'VALUE', pythonGenerator.ORDER_NONE) || "''"; let final_value = value; if (prop === 'voice') { final_value = `${value}.id`; } return `${engine}.setProperty('${prop}', ${final_value})\n`; };
+      pythonGenerator.forBlock['tts_get_property'] = function(b) { const engine = pythonGenerator.valueToCode(b, 'ENGINE', pythonGenerator.ORDER_ATOMIC) || 'None'; const prop = b.getFieldValue('PROP'); return [`${engine}.getProperty('${prop}')`, pythonGenerator.ORDER_FUNCTION_CALL]; };
+      pythonGenerator.forBlock['tts_get_voice_by_id'] = function(b) { const id = pythonGenerator.valueToCode(b, 'ID', pythonGenerator.ORDER_NONE) || 0; const voices = pythonGenerator.valueToCode(b, 'VOICES', pythonGenerator.ORDER_ATOMIC) || '[]'; return [`${voices}[${id}]`, pythonGenerator.ORDER_MEMBER]; };
+
+      // Time Generators
+      pythonGenerator.forBlock['time_sleep'] = function(b) { addTimeImport(); const seconds = pythonGenerator.valueToCode(b, 'SECONDS', pythonGenerator.ORDER_NONE) || 0; return `time.sleep(${seconds})\n`; };
+      pythonGenerator.forBlock['time_get_current'] = function(b) { addTimeImport(); return ['time.time()', pythonGenerator.ORDER_FUNCTION_CALL]; };
+      
+      // System & PyAutoGUI Generators
+      pythonGenerator.forBlock['sbc_set_brightness'] = function(b) { addSbcImport(); const brightness = pythonGenerator.valueToCode(b, 'BRIGHTNESS', pythonGenerator.ORDER_NONE) || 0; const code = `try:\n  sbc.set_brightness(${brightness})\nexcept Exception:\n  pass\n`; return code; };
+      pythonGenerator.forBlock['pyautogui_get_screen_size'] = function(b) { addPyAutoGUIImport(); return ['pyautogui.size()', pythonGenerator.ORDER_FUNCTION_CALL]; };
+      pythonGenerator.forBlock['pyautogui_move_to'] = function(b) { addPyAutoGUIImport(); const x = pythonGenerator.valueToCode(b, 'X', pythonGenerator.ORDER_NONE) || 0; const y = pythonGenerator.valueToCode(b, 'Y', pythonGenerator.ORDER_NONE) || 0; return `pyautogui.moveTo(${x}, ${y})\n`; };
+      pythonGenerator.forBlock['pyautogui_click'] = function(b) { addPyAutoGUIImport(); return `pyautogui.click()\n`; };
+      pythonGenerator.forBlock['pyautogui_press'] = function(b) { addPyAutoGUIImport(); const key = pythonGenerator.valueToCode(b, 'KEY', pythonGenerator.ORDER_NONE) || "''"; return `pyautogui.press(${key})\n`; };
+      pythonGenerator.forBlock['pyautogui_write'] = function(b) { addPyAutoGUIImport(); const text = pythonGenerator.valueToCode(b, 'TEXT', pythonGenerator.ORDER_NONE) || "''"; return `pyautogui.write(${text})\n`; };
+      
+      // NumPy Generators
+      pythonGenerator.forBlock['np_array'] = function(b) { addNumpyImport(); const list = pythonGenerator.valueToCode(b, 'LIST', pythonGenerator.ORDER_NONE) || '[]'; return [`np.array(${list})`, pythonGenerator.ORDER_FUNCTION_CALL]; };
+      pythonGenerator.forBlock['np_create_blank_image'] = function(b) { addNumpyImport(); const w = pythonGenerator.valueToCode(b, 'WIDTH', pythonGenerator.ORDER_NONE) || 640; const h = pythonGenerator.valueToCode(b, 'HEIGHT', pythonGenerator.ORDER_NONE) || 480; const color = pythonGenerator.valueToCode(b, 'COLOR', pythonGenerator.ORDER_NONE) || '(255, 255, 255)'; return [`np.full((${h}, ${w}, 3), ${color}, dtype=np.uint8)`, pythonGenerator.ORDER_FUNCTION_CALL]; };
+      pythonGenerator.forBlock['np_interp'] = function(b) { addNumpyImport(); const x = pythonGenerator.valueToCode(b, 'X', pythonGenerator.ORDER_NONE) || 0; const xp = pythonGenerator.valueToCode(b, 'XP', pythonGenerator.ORDER_NONE) || '[0, 1]'; const fp = pythonGenerator.valueToCode(b, 'FP', pythonGenerator.ORDER_NONE) || '[0, 100]'; return [`np.interp(${x}, ${xp}, ${fp})`, pythonGenerator.ORDER_FUNCTION_CALL]; };
+      pythonGenerator.forBlock['np_sqrt'] = function(b) { addNumpyImport(); const num = pythonGenerator.valueToCode(b, 'NUM', pythonGenerator.ORDER_NONE) || 0; return [`np.sqrt(${num})`, pythonGenerator.ORDER_FUNCTION_CALL]; };
+      pythonGenerator.forBlock['np_zeros_like'] = function(b) { addNumpyImport(); const arr = pythonGenerator.valueToCode(b, 'ARRAY', pythonGenerator.ORDER_ATOMIC) || 'None'; return [`np.zeros_like(${arr})`, pythonGenerator.ORDER_FUNCTION_CALL]; };
+      
+      // Tkinter Generators
+      pythonGenerator.forBlock['tk_create_window'] = function(b) { addTkinterImport(); return ['tk.Tk()', pythonGenerator.ORDER_FUNCTION_CALL]; };
+      pythonGenerator.forBlock['tk_set_title'] = function(b) { const win = pythonGenerator.valueToCode(b, 'WINDOW', pythonGenerator.ORDER_ATOMIC) || 'root'; const title = pythonGenerator.valueToCode(b, 'TITLE', pythonGenerator.ORDER_NONE) || "''"; return `${win}.title(${title})\n`; };
+      pythonGenerator.forBlock['tk_set_geometry'] = function(b) { const win = pythonGenerator.valueToCode(b, 'WINDOW', pythonGenerator.ORDER_ATOMIC) || 'root'; const geo = pythonGenerator.valueToCode(b, 'GEOMETRY', pythonGenerator.ORDER_NONE) || "'400x300'"; return `${win}.geometry(${geo})\n`; };
+      pythonGenerator.forBlock['tk_create_widget'] = function(b) { addTkinterImport(); const widget = b.getFieldValue('WIDGET'); const parent = pythonGenerator.valueToCode(b, 'PARENT', pythonGenerator.ORDER_ATOMIC) || 'root'; const options = pythonGenerator.valueToCode(b, 'OPTIONS', pythonGenerator.ORDER_NONE) || ""; const finalOptions = options.substring(1, options.length - 1); return [`ttk.${widget}(${parent}, ${finalOptions})`, pythonGenerator.ORDER_FUNCTION_CALL]; };
+      pythonGenerator.forBlock['tk_pack_widget'] = function(b) { const widget = pythonGenerator.valueToCode(b, 'WIDGET', pythonGenerator.ORDER_ATOMIC) || 'None'; const options = pythonGenerator.valueToCode(b, 'OPTIONS', pythonGenerator.ORDER_NONE) || ""; const finalOptions = options.substring(1, options.length - 1); return `${widget}.pack(${finalOptions})\n`; };
+      pythonGenerator.forBlock['tk_grid_widget'] = function(b) { const widget = pythonGenerator.valueToCode(b, 'WIDGET', pythonGenerator.ORDER_ATOMIC) || 'None'; const options = pythonGenerator.valueToCode(b, 'OPTIONS', pythonGenerator.ORDER_NONE) || ""; return `${widget}.grid(${options})\n`; };
+      pythonGenerator.forBlock['tk_widget_config'] = function(b) { const widget = pythonGenerator.valueToCode(b, 'WIDGET', pythonGenerator.ORDER_ATOMIC) || 'None'; const options = pythonGenerator.valueToCode(b, 'OPTIONS', pythonGenerator.ORDER_NONE) || ""; return `${widget}.config(${options})\n`; };
+      pythonGenerator.forBlock['tk_entry_get'] = function(b) { const widget = pythonGenerator.valueToCode(b, 'WIDGET', pythonGenerator.ORDER_ATOMIC) || 'None'; return [`${widget}.get()`, pythonGenerator.ORDER_FUNCTION_CALL]; };
+      pythonGenerator.forBlock['tk_entry_set'] = function(b) { const widget = pythonGenerator.valueToCode(b, 'WIDGET', pythonGenerator.ORDER_ATOMIC) || 'None'; const text = pythonGenerator.valueToCode(b, 'TEXT', pythonGenerator.ORDER_NONE) || "''"; return `${widget}.delete(0, 'end')\n${widget}.insert(0, ${text})\n`; };
+      pythonGenerator.forBlock['tk_mainloop'] = function(b) { const win = pythonGenerator.valueToCode(b, 'WINDOW', pythonGenerator.ORDER_ATOMIC) || 'root'; return `${win}.mainloop()\n`; };
+      
+      pythonGenerator.forBlock['tk_widget_bind'] = function(b) { addTkinterImport(); const widget = pythonGenerator.valueToCode(b, 'WIDGET', pythonGenerator.ORDER_ATOMIC) || 'None'; const event = pythonGenerator.valueToCode(b, 'EVENT', pythonGenerator.ORDER_NONE) || "''"; const func = pythonGenerator.valueToCode(b, 'FUNCTION', pythonGenerator.ORDER_NONE) || 'None'; return `${widget}.bind(${event}, ${func})\n`; };
+      pythonGenerator.forBlock['tk_treeview_action'] = function(b) { addTkinterImport(); const widget = pythonGenerator.valueToCode(b, 'WIDGET', pythonGenerator.ORDER_ATOMIC) || 'None'; const action = b.getFieldValue('ACTION'); const parent = pythonGenerator.valueToCode(b, 'PARENT', pythonGenerator.ORDER_NONE) || "''"; const index = pythonGenerator.valueToCode(b, 'INDEX', pythonGenerator.ORDER_NONE) || "'end'"; const values = pythonGenerator.valueToCode(b, 'VALUES', pythonGenerator.ORDER_NONE) || "()"; if (action === 'insert') { return `${widget}.insert(parent=${parent}, index=${index}, values=${values})\n`; } if (action === 'delete_all') { return `${widget}.delete(*${widget}.get_children())\n`; } if (action === 'selection') { return [`${widget}.selection()`, pythonGenerator.ORDER_FUNCTION_CALL]; } if (action === 'item') { const item_id = parent; return [`${widget}.item(${item_id}, 'values')`, pythonGenerator.ORDER_FUNCTION_CALL]; } };
+      pythonGenerator.forBlock['tk_treeview_config'] = function(b) { addTkinterImport(); const widget = pythonGenerator.valueToCode(b, 'WIDGET', pythonGenerator.ORDER_ATOMIC) || 'None'; const target = b.getFieldValue('TARGET'); const name = pythonGenerator.valueToCode(b, 'NAME', pythonGenerator.ORDER_NONE) || "''"; const options = pythonGenerator.valueToCode(b, 'OPTIONS', pythonGenerator.ORDER_NONE) || ""; return `${widget}.${target}(${name}, ${options})\n`; };
+      pythonGenerator.forBlock['tk_messagebox'] = function(b) { pythonGenerator.definitions_['import_tkinter_messagebox'] = 'from tkinter import messagebox'; const type = b.getFieldValue('TYPE'); const title = pythonGenerator.valueToCode(b, 'TITLE', pythonGenerator.ORDER_NONE) || "''"; const message = pythonGenerator.valueToCode(b, 'MESSAGE', pythonGenerator.ORDER_NONE) || "''"; return [`messagebox.${type}(title=${title}, message=${message})`, pythonGenerator.ORDER_FUNCTION_CALL]; };
+
+      
+
+      // --- 3. INITIALIZE THE APP ---
+      const workspace = Blockly.inject('blocklyDiv', {
+        toolbox: document.getElementById('toolbox'),
+        grid: { spacing: 20, length: 3, colour: '#ccc', snap: true },
+        trashcan: true,
+        zoom: { controls: true, wheel: true, startScale: 0.9, maxScale: 3, minScale: 0.3, scaleSpeed: 1.2 }
+      });
+
+      const codeArea = document.getElementById('codeArea');
+      const copyButton = document.getElementById('copyButton');
+      const saveButton = document.getElementById('saveButton');
+      const loadButton = document.getElementById('loadButton');
+      const loadInput = document.getElementById('loadInput');
+      
+      function updatePythonCode() {
+        try {
+          pythonGenerator.init(workspace);
+          const code = pythonGenerator.workspaceToCode(workspace);
+          codeArea.textContent = code || "# Drag blocks from the toolbox to start...";
+        } catch(e) {
+          console.error("Error during code generation:", e);
+          codeArea.textContent = "# Error generating code. See developer console for details.";
+        }
+      }
+
+      function copyCode() {
+        navigator.clipboard.writeText(codeArea.textContent).then(() => {
+          copyButton.textContent = 'Copied!';
+          setTimeout(() => { copyButton.textContent = 'Copy Python Code'; }, 1500);
+        }).catch(err => {
+          console.error('Failed to copy code: ', err);
+          alert('Failed to copy code. See console for details.');
+        });
+      }
+
+      function saveWorkspace() {
+        try {
+          const xml = Blockly.Xml.workspaceToDom(workspace);
+          const xmlText = Blockly.Xml.domToText(xml);
+          
+          const blob = new Blob([xmlText], { type: 'text/xml' });
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = 'blockly-project.xml';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(a.href);
+
+        } catch (e) {
+          console.error("Error saving workspace:", e);
+          alert("Could not save the project. See console for details.");
+        }
+      }
+
+      function loadWorkspace(event) {
+        const file = event.target.files[0];
+        if (!file) { return; }
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const xmlText = e.target.result;
+          try {
+            const xml = Blockly.utils.xml.textToDom(xmlText);
+            workspace.clear(); 
+            Blockly.Xml.domToWorkspace(xml, workspace);
+          } catch (err) {
+            console.error("Error loading workspace from XML:", err);
+            alert("Error: Could not load the project file. It may be corrupted or not a valid Blockly project file.");
+          }
+        };
+        reader.onerror = function(e) { console.error("File reader error:", e); alert("Error reading the project file."); }
+        reader.readAsText(file);
+        event.target.value = ''; 
+      }
+      
+      workspace.addChangeListener(function(event) {
+        // Hide/show the color input for the background styler block
+        if (event.type == Blockly.Events.CHANGE && event.element == 'field') {
+          const block = workspace.getBlockById(event.blockId);
+          if (block && block.type == 'mp_style_background') {
+            const isColor = block.getFieldValue('STYLE') === 'COLOR';
+            block.getInput('COLOR').setVisible(isColor);
+          }
+        }
+        updatePythonCode(); 
+      });
+      
+      copyButton.addEventListener('click', copyCode);
+      saveButton.addEventListener('click', saveWorkspace);
+      loadButton.addEventListener('click', () => loadInput.click()); 
+      loadInput.addEventListener('change', loadWorkspace);
+      
+      const startBlocks = document.getElementById('startBlocks');
+      Blockly.Xml.domToWorkspace(startBlocks, workspace);
+      workspace.scrollCenter();
+
+      // Initial check for visibility on loaded blocks
+      const allBlocks = workspace.getAllBlocks(false);
+      for(let i = 0; i < allBlocks.length; i++) {
+        const block = allBlocks[i];
+        if (block.type == 'mp_style_background') {
+           const isColor = block.getFieldValue('STYLE') === 'COLOR';
+           block.getInput('COLOR').setVisible(isColor);
+        }
+      }
+
+      // Initial code generation
+      updatePythonCode();
+    });
+  </script>
+
+</body>
+</html>

@@ -1,0 +1,147 @@
+  <!-- The starting blocks to display when the page loads -->
+  <xml id="startBlocks" style="display: none">
+    <variables>
+      <variable>model</variable>
+      <variable>camera</variable>
+      <variable>frame</variable>
+      <variable>detection</variable>
+    </variables>
+    <block type="variables_set" x="50" y="30">
+      <field name="VAR">model</field>
+      <value name="VALUE">
+        <block type="yolo8_load_model">
+          <value name="PATH">
+            <shadow type="text">
+              <field name="TEXT">yolov8n.pt</field>
+            </shadow>
+          </value>
+        </block>
+      </value>
+      <next>
+        <block type="variables_set">
+          <field name="VAR">camera</field>
+          <value name="VALUE">
+            <block type="cv_videocapture">
+              <value name="INDEX">
+                <shadow type="math_number">
+                  <field name="NUM">0</field>
+                </shadow>
+              </value>
+            </block>
+          </value>
+          <next>
+            <block type="controls_whileUntil">
+              <field name="MODE">WHILE</field>
+              <value name="BOOL">
+                <block type="logic_boolean">
+                  <field name="BOOL">TRUE</field>
+                </block>
+              </value>
+              <statement name="DO">
+                <block type="variables_set">
+                  <field name="VAR">frame</field>
+                  <value name="VALUE">
+                    <block type="cv_cap_read">
+                      <value name="CAPTURE">
+                        <shadow type="variables_get">
+                          <field name="VAR">camera</field>
+                        </shadow>
+                      </value>
+                    </block>
+                  </value>
+                  <next>
+                    <block type="yolo8_for_each_detection">
+                      <field name="VAR">detection</field>
+                      <value name="DETECTIONS">
+                        <block type="yolo8_detect_objects">
+                          <value name="IMAGE">
+                            <shadow type="variables_get">
+                              <field name="VAR">frame</field>
+                            </shadow>
+                          </value>
+                          <value name="MODEL">
+                            <shadow type="variables_get">
+                              <field name="VAR">model</field>
+                            </shadow>
+                          </value>
+                          <value name="CONF">
+                            <shadow type="math_number">
+                              <field name="NUM">0.5</field>
+                            </shadow>
+                          </value>
+                          <!-- THIS IS THE UPDATED PART: It's now a 'field' instead of a 'value' -->
+                          <field name="CLASS_FILTER">cell phone</field>
+                        </block>
+                      </value>
+                      <statement name="DO">
+                        <block type="yolo8_draw_detection">
+                          <value name="IMAGE">
+                            <shadow type="variables_get">
+                              <field name="VAR">frame</field>
+                            </shadow>
+                          </value>
+                          <value name="DETECTION">
+                            <shadow type="variables_get">
+                              <field name="VAR">detection</field>
+                            </shadow>
+                          </value>
+                        </block>
+                      </statement>
+                      <next>
+                        <block type="cv_imshow">
+                          <value name="IMAGE">
+                            <shadow type="variables_get">
+                              <field name="VAR">frame</field>
+                            </shadow>
+                          </value>
+                          <value name="TITLE">
+                            <shadow type="text">
+                              <field name="TEXT">YOLOv8 Detection</field>
+                            </shadow>
+                          </value>
+                          <next>
+                            <block type="controls_if">
+                              <value name="IF0">
+                                <block type="logic_compare">
+                                  <field name="OP">EQ</field>
+                                  <value name="A">
+                                    <block type="cv_get_key_press"></block>
+                                  </value>
+                                  <value name="B">
+                                    <shadow type="text">
+                                      <field name="TEXT">q</field>
+                                    </shadow>
+                                  </value>
+                                </block>
+                              </value>
+                              <statement name="DO0">
+                                <block type="controls_flow_statements">
+                                  <field name="FLOW">BREAK</field>
+                                </block>
+                              </statement>
+                            </block>
+                          </next>
+                        </block>
+                      </next>
+                    </block>
+                  </next>
+                </block>
+              </statement>
+              <next>
+                <block type="cv_cap_release">
+                  <value name="CAPTURE">
+                    <shadow type="variables_get">
+                      <field name="VAR">camera</field>
+                    </shadow>
+                  </value>
+                  <next>
+                    <block type="cv_destroy_all_windows"></block>
+                  </next>
+                </block>
+              </next>
+            </block>
+          </next>
+        </block>
+      </next>
+    </block>
+  </xml>
